@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/theme';
-import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function UserInfo() {
   const router = useRouter();
@@ -16,8 +16,53 @@ export default function UserInfo() {
   const [weight, setWeight] = useState('');
   const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
+  const [ouraChecked, setOuraChecked] = useState(false);
 
   const totalSteps = 5;
+
+  // Check for Oura connection on mount
+  useEffect(() => {
+    const checkOura = async () => {
+      const ouraToken = await AsyncStorage.getItem('ouraApiToken');
+      if (ouraToken && !ouraChecked) {
+        Alert.alert(
+          'Load from Oura? 💍',
+          'We detected your Oura Ring is connected. Would you like to auto-fill your profile?',
+          [
+            {
+              text: 'No Thanks',
+              style: 'cancel',
+              onPress: () => setOuraChecked(true),
+            },
+            {
+              text: 'Yes, Auto-Fill',
+              onPress: async () => {
+                try {
+                  const { autoFillProfileFromOura } = await import('@/services/oura-data-mapper');
+                  const ouraProfile = await autoFillProfileFromOura();
+                  
+                  if (ouraProfile) {
+                    setAge(ouraProfile.age.toString());
+                    setHeight(ouraProfile.height.toString());
+                    setWeight(ouraProfile.weight.toString());
+                    setSex(ouraProfile.sex);
+                    setHeightUnit('cm');
+                    setWeightUnit('kg');
+                    setOuraChecked(true);
+                    Alert.alert('Success!', 'Profile data loaded from Oura Ring');
+                  }
+                } catch (error) {
+                  Alert.alert('Error', 'Could not load Oura data');
+                  setOuraChecked(true);
+                }
+              },
+            },
+          ]
+        );
+      }
+    };
+    checkOura();
+  }, []);
 
   const handleContinue = async () => {
     if (currentStep === 1 && !name.trim()) {

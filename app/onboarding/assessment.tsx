@@ -85,16 +85,41 @@ export default function Assessment() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [inputValue, setInputValue] = useState('');
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [ouraDataLoaded, setOuraDataLoaded] = useState(false);
 
-  // Load user profile on mount
+  // Load user profile and Oura data on mount
   useEffect(() => {
-    const loadProfile = async () => {
+    const loadProfileAndOuraData = async () => {
       const userProfileStr = await AsyncStorage.getItem('userProfile');
       if (userProfileStr) {
         setUserProfile(JSON.parse(userProfileStr));
       }
+
+      // Check if Oura is connected and pre-fill assessment
+      const ouraToken = await AsyncStorage.getItem('ouraApiToken');
+      if (ouraToken && !ouraDataLoaded) {
+        try {
+          const { preFillAssessmentFromOura } = await import('@/services/oura-data-mapper');
+          const ouraAssessment = await preFillAssessmentFromOura(7);
+          
+          if (ouraAssessment) {
+            setAnswers({
+              endurance: ouraAssessment.endurance,
+              cardio: ouraAssessment.cardio,
+            });
+            setOuraDataLoaded(true);
+            Alert.alert(
+              'Oura Data Loaded! 💍',
+              'Your endurance and cardio assessments have been pre-filled from your Oura Ring data.',
+              [{ text: 'Great!' }]
+            );
+          }
+        } catch (error) {
+          console.log('Could not load Oura data:', error);
+        }
+      }
     };
-    loadProfile();
+    loadProfileAndOuraData();
   }, []);
 
   const currentTestData = assessmentTests[currentTest];

@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface UserProfile {
   name: string;
@@ -22,7 +22,19 @@ interface AssessmentResults {
   actualAge: number;
 }
 
-const settingsOptions = [
+const getSettingsOptions = (isConnected: boolean) => [
+  {
+    title: 'Connected Devices',
+    items: [
+      { 
+        icon: 'watch-outline', 
+        label: 'Oura Ring', 
+        screen: '/oura-connect', 
+        badge: '💍',
+        status: isConnected ? 'Connected' : undefined
+      },
+    ],
+  },
   {
     title: 'Account',
     items: [
@@ -55,10 +67,17 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [assessmentResults, setAssessmentResults] = useState<AssessmentResults | null>(null);
+  const [isOuraConnected, setIsOuraConnected] = useState(false);
 
   useEffect(() => {
     loadUserData();
+    checkOuraConnection();
   }, []);
+
+  const checkOuraConnection = async () => {
+    const ouraToken = await AsyncStorage.getItem('ouraApiToken');
+    setIsOuraConnected(!!ouraToken);
+  };
 
   const loadUserData = async () => {
     try {
@@ -209,7 +228,7 @@ export default function ProfileScreen() {
         </View>
 
         {/* Settings Sections */}
-        {settingsOptions.map((section, index) => (
+        {getSettingsOptions(isOuraConnected).map((section, index) => (
           <View key={index} style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
               {section.title}
@@ -223,6 +242,15 @@ export default function ProfileScreen() {
                     itemIndex < section.items.length - 1 && styles.settingItemBorder,
                     { borderColor: colors.border },
                   ]}
+                  onPress={() => {
+                    if (item.screen) {
+                      if (item.screen.startsWith('/')) {
+                        router.push(item.screen as any);
+                      } else {
+                        Alert.alert('Coming Soon', `${item.label} feature coming soon!`);
+                      }
+                    }
+                  }}
                 >
                   <View style={styles.settingLeft}>
                     <View style={[styles.settingIcon, { backgroundColor: colors.background }]}>
@@ -231,6 +259,15 @@ export default function ProfileScreen() {
                     <Text style={[styles.settingLabel, { color: colors.text }]}>
                       {item.label}
                     </Text>
+                    {'badge' in item && (
+                      <Text style={styles.settingBadge}>{item.badge}</Text>
+                    )}
+                    {'status' in item && item.status && (
+                      <View style={styles.connectedBadge}>
+                        <Text style={styles.connectedDot}>●</Text>
+                        <Text style={styles.connectedText}>{item.status}</Text>
+                      </View>
+                    )}
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={colors.icon} />
                 </TouchableOpacity>
@@ -419,6 +456,29 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  settingBadge: {
+    fontSize: 18,
+    marginLeft: 4,
+  },
+  connectedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  connectedDot: {
+    color: '#10B981',
+    fontSize: 10,
+    marginRight: 4,
+  },
+  connectedText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#059669',
   },
   logoutButton: {
     flexDirection: 'row',
