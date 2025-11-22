@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   },
   progress: {
     height: '100%',
-    backgroundColor: Colors.light.primary,
+    backgroundColor: Colors.light.accent,
     borderRadius: 2,
   },
   content: {
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   testTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: Colors.light.primary,
+    color: Colors.light.accent,
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -455,8 +455,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   optionButtonSelected: {
-    backgroundColor: '#F3E8FF',
-    borderColor: Colors.light.primary,
+    backgroundColor: '#FCE7F3',
+    borderColor: Colors.light.accent,
   },
   optionContent: {
     flexDirection: 'row',
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   optionNumberSelected: {
-    backgroundColor: Colors.light.primary,
+    backgroundColor: Colors.light.accent,
   },
   optionNumberText: {
     fontSize: 14,
@@ -489,8 +489,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   optionTextSelected: {
-    color: Colors.light.primary,
-    fontWeight: '600',
+    color: Colors.light.accent,
+    fontWeight: '700',
   },
   footer: {
     padding: 20,
@@ -506,15 +506,15 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.primary,
+    color: Colors.light.accent,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FAF5FF',
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: '#F3E8FF',
     paddingHorizontal: 20,
     marginBottom: 16,
   },
@@ -532,27 +532,34 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   submitButton: {
-    backgroundColor: Colors.light.primary,
+    backgroundColor: Colors.light.accent,
     paddingVertical: 18,
     borderRadius: 30,
     alignItems: 'center',
     marginBottom: 24,
+    shadowColor: Colors.light.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   submitButtonText: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   referenceContainer: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#FCE7F3',
     borderRadius: 16,
     padding: 20,
     marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#FBCFE8',
   },
   referenceTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#831843',
     marginBottom: 12,
   },
   referenceRow: {

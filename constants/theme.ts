@@ -5,24 +5,27 @@
 
 import { Platform } from 'react-native';
 
-// Artemis Longevity Theme - Inspired by TrackFit
-const primaryPurple = '#8B5CF6';
-const lightPurple = '#A78BFA';
-const darkPurple = '#7C3AED';
+// Artemis Longevity Theme - Elegant & Feminine
+const primaryPink = '#EC4899';      // Hot pink
+const primaryPurple = '#8B5CF6';    // Violet
+const lightPurple = '#A78BFA';      // Light violet
+const darkPurple = '#7C3AED';       // Deep violet
+const softPink = '#FDE2F3';         // Very light pink
+const rose = '#F472B6';             // Rose pink
 
 export const Colors = {
   light: {
     text: '#1F2937',
     background: '#FFFFFF',
-    card: '#F9FAFB',
+    card: '#FAF5FF',               // Soft lavender tint
     tint: primaryPurple,
     primary: primaryPurple,
-    secondary: lightPurple,
-    accent: '#EC4899',
+    secondary: primaryPink,
+    accent: primaryPink,
     icon: '#6B7280',
     tabIconDefault: '#9CA3AF',
-    tabIconSelected: primaryPurple,
-    border: '#E5E7EB',
+    tabIconSelected: primaryPink,
+    border: '#F3E8FF',             // Light purple border
     success: '#10B981',
     warning: '#F59E0B',
     error: '#EF4444',

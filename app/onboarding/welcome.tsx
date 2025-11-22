@@ -1,8 +1,7 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@/constants/theme';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function Welcome() {
   const router = useRouter();
@@ -11,36 +10,52 @@ export default function Welcome() {
     <View style={styles.container}>
       <StatusBar style="light" />
       <LinearGradient
-        colors={[Colors.light.primary, Colors.light.secondary]}
+        colors={['#EC4899', '#8B5CF6', '#6366F1']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
         <View style={styles.content}>
-          <View style={styles.iconContainer}>
-            <Text style={styles.icon}>🏃</Text>
-          </View>
+          {/* Decorative circles */}
+          <View style={styles.decorativeCircle1} />
+          <View style={styles.decorativeCircle2} />
+          <View style={styles.decorativeCircle3} />
           
-          <Text style={styles.title}>Artemis Longevity</Text>
-          <Text style={styles.subtitle}>
-            Your Ultimate Fitness & Longevity Companion
-          </Text>
+          {/* Main content */}
+          <View style={styles.mainContent}>
+            <View style={styles.logoContainer}>
+              <Text style={styles.logo}>✨</Text>
+            </View>
+            
+            <Text style={styles.title}>Artemis</Text>
+            <Text style={styles.titleSubtext}>Longevity</Text>
+            <Text style={styles.subtitle}>
+              Empowering women to live stronger,{'\n'}healthier, and longer
+            </Text>
 
-          <View style={styles.features}>
-            <FeatureItem icon="📊" text="Track your fitness age" />
-            <FeatureItem icon="💪" text="Personalized exercises" />
-            <FeatureItem icon="👥" text="Group motivation" />
-            <FeatureItem icon="📈" text="Monitor your progress" />
+            <View style={styles.features}>
+              <FeatureItem icon="💎" text="Discover your fitness age" />
+              <FeatureItem icon="💪" text="Science-based strength training" />
+              <FeatureItem icon="🌸" text="Personalized wellness journey" />
+              <FeatureItem icon="📈" text="Track your vitality & progress" />
+            </View>
+
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={() => router.push('/onboarding/user-info')}
+            >
+              <LinearGradient
+                colors={['#FFFFFF', '#FAF5FF']}
+                style={styles.buttonGradient}
+              >
+                <Text style={styles.buttonText}>Begin Your Journey ✨</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <Text style={styles.terms}>
+              By continuing, you agree to our Terms & Privacy Policy
+            </Text>
           </View>
-
-          <TouchableOpacity 
-            style={styles.button}
-            onPress={() => router.push('/onboarding/user-info')}
-          >
-            <Text style={styles.buttonText}>Let's Get Started</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.terms}>
-            By continuing, you agree to our Terms & Privacy Policy
-          </Text>
         </View>
       </LinearGradient>
     </View>
@@ -50,7 +65,9 @@ export default function Welcome() {
 function FeatureItem({ icon, text }: { icon: string; text: string }) {
   return (
     <View style={styles.featureItem}>
-      <Text style={styles.featureIcon}>{icon}</Text>
+      <View style={styles.featureIconContainer}>
+        <Text style={styles.featureIcon}>{icon}</Text>
+      </View>
       <Text style={styles.featureText}>{text}</Text>
     </View>
   );
@@ -67,73 +84,152 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
   },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  decorativeCircle1: {
+    position: 'absolute',
+    top: 100,
+    right: -50,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  decorativeCircle2: {
+    position: 'absolute',
+    bottom: 150,
+    left: -80,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  decorativeCircle3: {
+    position: 'absolute',
+    top: 300,
+    left: 50,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  mainContent: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 30,
+    width: '100%',
+    zIndex: 1,
   },
-  icon: {
-    fontSize: 64,
+  logoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  logo: {
+    fontSize: 56,
   },
   title: {
-    fontSize: 36,
-    fontWeight: 'bold',
+    fontSize: 48,
+    fontWeight: '800',
     color: '#FFFFFF',
-    marginBottom: 12,
+    marginBottom: 4,
     textAlign: 'center',
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+  },
+  titleSubtext: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.95)',
+    marginBottom: 16,
+    textAlign: 'center',
+    letterSpacing: 3,
   },
   subtitle: {
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 17,
+    color: 'rgba(255, 255, 255, 0.95)',
     textAlign: 'center',
-    marginBottom: 50,
-    paddingHorizontal: 20,
+    marginBottom: 48,
+    paddingHorizontal: 24,
+    lineHeight: 26,
+    fontWeight: '500',
   },
   features: {
     width: '100%',
-    marginBottom: 50,
+    marginBottom: 40,
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    padding: 16,
-    borderRadius: 12,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    padding: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  featureIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
   featureIcon: {
-    fontSize: 28,
-    marginRight: 16,
+    fontSize: 24,
   },
   featureText: {
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
+    flex: 1,
+    letterSpacing: 0.3,
   },
   button: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 18,
-    paddingHorizontal: 50,
-    borderRadius: 30,
-    marginBottom: 20,
     width: '100%',
+    marginBottom: 20,
+    borderRadius: 32,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  buttonGradient: {
+    paddingVertical: 20,
+    paddingHorizontal: 50,
     alignItems: 'center',
   },
   buttonText: {
-    color: Colors.light.primary,
+    color: '#8B5CF6',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   terms: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

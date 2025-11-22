@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/theme';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function UserInfo() {
   const router = useRouter();
@@ -99,8 +100,8 @@ export default function UserInfo() {
 
         {currentStep === 2 && (
           <StepContainer
-            title="What's Your Sex?"
-            subtitle="This helps us provide accurate health benchmarks."
+            title="Tell Us About You"
+            subtitle="This helps us provide accurate health insights tailored for you."
           >
             <View style={styles.sexOptions}>
               <TouchableOpacity
@@ -110,13 +111,18 @@ export default function UserInfo() {
                 ]}
                 onPress={() => setSex('male')}
               >
-                <Text style={styles.sexIcon}>♂️</Text>
-                <Text style={[
-                  styles.sexText,
-                  sex === 'male' && styles.sexTextSelected,
-                ]}>
-                  Male
-                </Text>
+                <LinearGradient
+                  colors={sex === 'male' ? ['#8B5CF6', '#7C3AED'] : ['#F9FAFB', '#F3F4F6']}
+                  style={styles.sexButtonGradient}
+                >
+                  <Text style={styles.sexIcon}>♂️</Text>
+                  <Text style={[
+                    styles.sexText,
+                    sex === 'male' && styles.sexTextSelected,
+                  ]}>
+                    Male
+                  </Text>
+                </LinearGradient>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -125,13 +131,18 @@ export default function UserInfo() {
                 ]}
                 onPress={() => setSex('female')}
               >
-                <Text style={styles.sexIcon}>♀️</Text>
-                <Text style={[
-                  styles.sexText,
-                  sex === 'female' && styles.sexTextSelected,
-                ]}>
-                  Female
-                </Text>
+                <LinearGradient
+                  colors={sex === 'female' ? ['#EC4899', '#DB2777'] : ['#F9FAFB', '#F3F4F6']}
+                  style={styles.sexButtonGradient}
+                >
+                  <Text style={styles.sexIcon}>♀️</Text>
+                  <Text style={[
+                    styles.sexText,
+                    sex === 'female' && styles.sexTextSelected,
+                  ]}>
+                    Female
+                  </Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </StepContainer>
@@ -382,7 +393,7 @@ const styles = StyleSheet.create({
   },
   progress: {
     height: '100%',
-    backgroundColor: Colors.light.primary,
+    backgroundColor: Colors.light.accent,
     borderRadius: 2,
   },
   content: {
@@ -401,7 +412,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   titleHighlight: {
-    color: Colors.light.primary,
+    color: Colors.light.accent,
   },
   subtitle: {
     fontSize: 16,
@@ -413,7 +424,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
     borderBottomWidth: 2,
-    borderBottomColor: Colors.light.primary,
+    borderBottomColor: Colors.light.accent,
     paddingVertical: 12,
   },
   unitToggle: {
@@ -430,7 +441,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   unitButtonActive: {
-    backgroundColor: Colors.light.primary,
+    backgroundColor: Colors.light.accent,
   },
   unitText: {
     fontSize: 16,
@@ -450,7 +461,7 @@ const styles = StyleSheet.create({
   },
   pickerItemSelected: {
     borderBottomWidth: 2,
-    borderBottomColor: Colors.light.primary,
+    borderBottomColor: Colors.light.accent,
   },
   pickerText: {
     fontSize: 24,
@@ -459,12 +470,12 @@ const styles = StyleSheet.create({
   },
   pickerTextSelected: {
     fontSize: 32,
-    color: Colors.light.primary,
+    color: Colors.light.accent,
     fontWeight: 'bold',
   },
   pickerLabel: {
     fontSize: 14,
-    color: Colors.light.primary,
+    color: Colors.light.accent,
     marginLeft: 8,
   },
   footer: {
@@ -484,49 +495,64 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.primary,
+    color: Colors.light.accent,
   },
   continueButton: {
     flex: 2,
-    backgroundColor: Colors.light.primary,
+    backgroundColor: Colors.light.accent,
     paddingVertical: 16,
     borderRadius: 30,
     alignItems: 'center',
+    shadowColor: Colors.light.accent,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   continueText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: '#FFFFFF',
   },
   sexOptions: {
     flexDirection: 'row',
     gap: 16,
+    marginBottom: 20,
   },
   sexButton: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 20,
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sexButtonGradient: {
     padding: 32,
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: 'transparent',
+    borderRadius: 24,
   },
   sexButtonSelected: {
-    backgroundColor: '#F3E8FF',
-    borderColor: Colors.light.primary,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
   },
   sexIcon: {
-    fontSize: 48,
+    fontSize: 56,
     marginBottom: 12,
   },
   sexText: {
     fontSize: 20,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#6B7280',
   },
   sexTextSelected: {
-    color: Colors.light.primary,
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
 });
 
