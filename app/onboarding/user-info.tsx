@@ -9,28 +9,33 @@ export default function UserInfo() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [name, setName] = useState('');
+  const [sex, setSex] = useState<'male' | 'female' | ''>('');
   const [age, setAge] = useState('');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
   const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
 
-  const totalSteps = 4;
+  const totalSteps = 5;
 
   const handleContinue = async () => {
     if (currentStep === 1 && !name.trim()) {
       Alert.alert('Required', 'Please enter your name');
       return;
     }
-    if (currentStep === 2 && !age) {
+    if (currentStep === 2 && !sex) {
+      Alert.alert('Required', 'Please select your sex');
+      return;
+    }
+    if (currentStep === 3 && !age) {
       Alert.alert('Required', 'Please select your age');
       return;
     }
-    if (currentStep === 3 && !height) {
+    if (currentStep === 4 && !height) {
       Alert.alert('Required', 'Please enter your height');
       return;
     }
-    if (currentStep === 4 && !weight) {
+    if (currentStep === 5 && !weight) {
       Alert.alert('Required', 'Please enter your weight');
       return;
     }
@@ -41,6 +46,7 @@ export default function UserInfo() {
       // Save user info
       const userProfile = {
         name,
+        sex,
         age: parseInt(age),
         height: parseFloat(height),
         heightUnit,
@@ -93,6 +99,46 @@ export default function UserInfo() {
 
         {currentStep === 2 && (
           <StepContainer
+            title="What's Your Sex?"
+            subtitle="This helps us provide accurate health benchmarks."
+          >
+            <View style={styles.sexOptions}>
+              <TouchableOpacity
+                style={[
+                  styles.sexButton,
+                  sex === 'male' && styles.sexButtonSelected,
+                ]}
+                onPress={() => setSex('male')}
+              >
+                <Text style={styles.sexIcon}>♂️</Text>
+                <Text style={[
+                  styles.sexText,
+                  sex === 'male' && styles.sexTextSelected,
+                ]}>
+                  Male
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.sexButton,
+                  sex === 'female' && styles.sexButtonSelected,
+                ]}
+                onPress={() => setSex('female')}
+              >
+                <Text style={styles.sexIcon}>♀️</Text>
+                <Text style={[
+                  styles.sexText,
+                  sex === 'female' && styles.sexTextSelected,
+                ]}>
+                  Female
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </StepContainer>
+        )}
+
+        {currentStep === 3 && (
+          <StepContainer
             title="How Old Are You?"
             subtitle="Share your age with us."
           >
@@ -123,7 +169,7 @@ export default function UserInfo() {
           </StepContainer>
         )}
 
-        {currentStep === 3 && (
+        {currentStep === 4 && (
           <StepContainer
             title="What's Your Height?"
             subtitle="How tall are you?"
@@ -197,7 +243,7 @@ export default function UserInfo() {
           </StepContainer>
         )}
 
-        {currentStep === 4 && (
+        {currentStep === 5 && (
           <StepContainer
             title="What's Your Weight?"
             subtitle="Share your weight with us."
@@ -289,7 +335,7 @@ function StepContainer({ title, subtitle, children }: { title: string; subtitle:
     <View style={styles.stepContainer}>
       <Text style={styles.title}>
         {title.split(' ').map((word, index) => 
-          word.includes('Name') || word.includes('Old') || word.includes('Height') || word.includes('Weight') ? (
+          word.includes('Name') || word.includes('Sex') || word.includes('Old') || word.includes('Height') || word.includes('Weight') ? (
             <Text key={index} style={styles.titleHighlight}>{word} </Text>
           ) : (
             <Text key={index}>{word} </Text>
@@ -451,6 +497,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  sexOptions: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  sexButton: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'transparent',
+  },
+  sexButtonSelected: {
+    backgroundColor: '#F3E8FF',
+    borderColor: Colors.light.primary,
+  },
+  sexIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  sexText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  sexTextSelected: {
+    color: Colors.light.primary,
+    fontWeight: 'bold',
   },
 });
 

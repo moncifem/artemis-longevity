@@ -1,10 +1,15 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import {
+  calculateGripStrengthPercentile,
+  getGripStrengthPerformanceLevel,
+  getGripStrengthReferenceValues
+} from '@/constants/grip-strength-norms';
+import { Colors } from '@/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '@/constants/theme';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Age-adjusted fitness benchmarks
 const ageBenchmarks = {
@@ -40,12 +45,13 @@ const ageBenchmarks = {
 
 const assessmentTests = [
   {
-    id: 'strength',
-    title: 'Strength Test',
-    description: 'How many pull-ups/push-ups can you do continuously?',
-    icon: '💪',
-    options: ['0-2', '3-5', '6-10', '11-15', '15+'],
-    unit: 'reps',
+    id: 'gripStrength',
+    title: 'Grip Strength Test',
+    description: 'Using a handgrip dynamometer (or estimate), how many kilograms can you hold at 90° arm angle?',
+    icon: '🤝',
+    inputType: 'number' as const,
+    unit: 'kg',
+    placeholder: 'Enter kg (e.g., 45)',
   },
   {
     id: 'endurance',
@@ -77,6 +83,19 @@ export default function Assessment() {
   const router = useRouter();
   const [currentTest, setCurrentTest] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [inputValue, setInputValue] = useState('');
+  const [userProfile, setUserProfile] = useState<any>(null);
+
+  // Load user profile on mount
+  useEffect(() => {
+    const loadProfile = async () => {
+      const userProfileStr = await AsyncStorage.getItem('userProfile');
+      if (userProfileStr) {
+        setUserProfile(JSON.parse(userProfileStr));
+      }
+    };
+    loadProfile();
+  }, []);
 
   const currentTestData = assessmentTests[currentTest];
   const isLastTest = currentTest === assessmentTests.length - 1;
@@ -84,6 +103,7 @@ export default function Assessment() {
   const handleAnswer = (answer: string) => {
     const newAnswers = { ...answers, [currentTestData.id]: answer };
     setAnswers(newAnswers);
+    setInputValue(''); // Clear input for next test
 
     if (isLastTest) {
       // Calculate fitness age based on answers
@@ -93,6 +113,27 @@ export default function Assessment() {
         setCurrentTest(currentTest + 1);
       }, 300);
     }
+  };
+
+  const handleInputSubmit = () => {
+    if (!inputValue.trim()) {
+      Alert.alert('Required', 'Please enter a value');
+      return;
+    }
+
+    const numValue = parseFloat(inputValue);
+    if (isNaN(numValue) || numValue <= 0) {
+      Alert.alert('Invalid', 'Please enter a valid positive number');
+      return;
+    }
+
+    // Validate grip strength range (reasonable values)
+    if (currentTestData.id === 'gripStrength' && (numValue < 5 || numValue > 150)) {
+      Alert.alert('Invalid Range', 'Please enter a realistic grip strength value (5-150 kg)');
+      return;
+    }
+
+    handleAnswer(inputValue);
   };
 
   const getAgeGroup = (age: number): string => {
@@ -108,21 +149,36 @@ export default function Assessment() {
     const userProfile = userProfileStr ? JSON.parse(userProfileStr) : {};
     
     const actualAge = userProfile.age || 30;
+    const sex = userProfile.sex || 'male'; // Default to male if not specified
     const ageGroup = getAgeGroup(actualAge);
     
     // Calculate fitness score using age-adjusted benchmarks
     let totalScore = 0;
     let maxScore = 0;
-    const detailedScores: Record<string, number> = {};
+    const detailedScores: Record<string, number | string> = {};
 
     assessmentTests.forEach((test) => {
       const answer = testAnswers[test.id];
-      const answerIndex = test.options.indexOf(answer);
+      let testScore = 0;
       
-      // Each test contributes 0-4 points based on performance
-      // Higher answerIndex = better performance
-      const testScore = answerIndex;
-      detailedScores[test.id] = testScore;
+      if (test.id === 'gripStrength') {
+        // Calculate grip strength score using normative data
+        const gripStrength = parseFloat(answer);
+        if (!isNaN(gripStrength)) {
+          const percentile = calculateGripStrengthPercentile(gripStrength, sex, actualAge);
+          const performance = getGripStrengthPerformanceLevel(percentile);
+          testScore = performance.score;
+          detailedScores[test.id] = testScore;
+          detailedScores[`${test.id}_percentile`] = Math.round(percentile);
+          detailedScores[`${test.id}_level`] = performance.level;
+        }
+      } else if ('options' in test && test.options) {
+        // Original scoring for multiple choice tests
+        const answerIndex = test.options.indexOf(answer);
+        testScore = answerIndex;
+        detailedScores[test.id] = testScore;
+      }
+      
       totalScore += testScore;
       maxScore += 4; // Maximum 4 points per test
     });
@@ -222,40 +278,90 @@ export default function Assessment() {
           <Text style={styles.testDescription}>{currentTestData.description}</Text>
         </LinearGradient>
 
-        <Text style={styles.selectText}>Select your answer:</Text>
-
-        <View style={styles.optionsContainer}>
-          {currentTestData.options.map((option, index) => (
+        {'inputType' in currentTestData ? (
+          // Input field for numeric tests (e.g., grip strength)
+          <>
+            <Text style={styles.selectText}>Enter your measurement:</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                value={inputValue}
+                onChangeText={setInputValue}
+                placeholder={currentTestData.placeholder || 'Enter value'}
+                keyboardType="decimal-pad"
+                placeholderTextColor="#9CA3AF"
+              />
+              <Text style={styles.inputUnit}>{currentTestData.unit}</Text>
+            </View>
             <TouchableOpacity
-              key={option}
-              style={[
-                styles.optionButton,
-                answers[currentTestData.id] === option && styles.optionButtonSelected,
-              ]}
-              onPress={() => handleAnswer(option)}
+              style={styles.submitButton}
+              onPress={handleInputSubmit}
             >
-              <View style={styles.optionContent}>
-                <View style={[
-                  styles.optionNumber,
-                  answers[currentTestData.id] === option && styles.optionNumberSelected,
-                ]}>
-                  <Text style={[
-                    styles.optionNumberText,
-                    answers[currentTestData.id] === option && styles.optionNumberTextSelected,
-                  ]}>
-                    {index + 1}
-                  </Text>
-                </View>
-                <Text style={[
-                  styles.optionText,
-                  answers[currentTestData.id] === option && styles.optionTextSelected,
-                ]}>
-                  {option}
-                </Text>
-              </View>
+              <Text style={styles.submitButtonText}>
+                {isLastTest ? 'Complete Assessment' : 'Next'}
+              </Text>
             </TouchableOpacity>
-          ))}
-        </View>
+            
+            {/* Show reference values */}
+            {currentTestData.id === 'gripStrength' && userProfile && (() => {
+              const sex = userProfile.sex || 'male';
+              const age = userProfile.age || 30;
+              const refs = getGripStrengthReferenceValues(sex, age);
+              
+              return (
+                <View style={styles.referenceContainer}>
+                  <Text style={styles.referenceTitle}>Reference Values ({refs.ageGroup} years, {sex}):</Text>
+                  <View style={styles.referenceRow}>
+                    <Text style={styles.referenceLabel}>Below Average: &lt;{refs.poor.toFixed(1)} kg</Text>
+                  </View>
+                  <View style={styles.referenceRow}>
+                    <Text style={styles.referenceLabel}>Average: ~{refs.average.toFixed(1)} kg</Text>
+                  </View>
+                  <View style={styles.referenceRow}>
+                    <Text style={styles.referenceLabel}>Excellent: &gt;{refs.excellent.toFixed(1)} kg</Text>
+                  </View>
+                </View>
+              );
+            })()}
+          </>
+        ) : (
+          // Multiple choice options for other tests
+          <>
+            <Text style={styles.selectText}>Select your answer:</Text>
+            <View style={styles.optionsContainer}>
+              {'options' in currentTestData && currentTestData.options?.map((option, index) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.optionButton,
+                    answers[currentTestData.id] === option && styles.optionButtonSelected,
+                  ]}
+                  onPress={() => handleAnswer(option)}
+                >
+                  <View style={styles.optionContent}>
+                    <View style={[
+                      styles.optionNumber,
+                      answers[currentTestData.id] === option && styles.optionNumberSelected,
+                    ]}>
+                      <Text style={[
+                        styles.optionNumberText,
+                        answers[currentTestData.id] === option && styles.optionNumberTextSelected,
+                      ]}>
+                        {index + 1}
+                      </Text>
+                    </View>
+                    <Text style={[
+                      styles.optionText,
+                      answers[currentTestData.id] === option && styles.optionTextSelected,
+                    ]}>
+                      {option}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       <View style={styles.footer}>
@@ -401,6 +507,61 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.light.primary,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  input: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+    paddingVertical: 20,
+  },
+  inputUnit: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginLeft: 8,
+  },
+  submitButton: {
+    backgroundColor: Colors.light.primary,
+    paddingVertical: 18,
+    borderRadius: 30,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  submitButtonText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  referenceContainer: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 8,
+  },
+  referenceTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  referenceRow: {
+    marginBottom: 8,
+  },
+  referenceLabel: {
+    fontSize: 14,
+    color: '#4B5563',
+    fontWeight: '500',
   },
 });
 
