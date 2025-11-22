@@ -5,25 +5,43 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Artemis Longevity Theme - Inspired by TrackFit
+const primaryPurple = '#8B5CF6';
+const lightPurple = '#A78BFA';
+const darkPurple = '#7C3AED';
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    text: '#1F2937',
+    background: '#FFFFFF',
+    card: '#F9FAFB',
+    tint: primaryPurple,
+    primary: primaryPurple,
+    secondary: lightPurple,
+    accent: '#EC4899',
+    icon: '#6B7280',
+    tabIconDefault: '#9CA3AF',
+    tabIconSelected: primaryPurple,
+    border: '#E5E7EB',
+    success: '#10B981',
+    warning: '#F59E0B',
+    error: '#EF4444',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: '#F9FAFB',
+    background: '#111827',
+    card: '#1F2937',
+    tint: lightPurple,
+    primary: lightPurple,
+    secondary: primaryPurple,
+    accent: '#F472B6',
+    icon: '#9CA3AF',
+    tabIconDefault: '#6B7280',
+    tabIconSelected: lightPurple,
+    border: '#374151',
+    success: '#34D399',
+    warning: '#FBBF24',
+    error: '#F87171',
   },
 };
 
