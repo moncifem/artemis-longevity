@@ -6,34 +6,70 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/theme';
 import { StatusBar } from 'expo-status-bar';
 
+// Age-adjusted fitness benchmarks
+const ageBenchmarks = {
+  strength: {
+    '20-30': [0, 5, 10, 15, 20],      // pull-ups: poor, below avg, avg, good, excellent
+    '31-40': [0, 4, 8, 12, 16],
+    '41-50': [0, 3, 6, 9, 12],
+    '51-60': [0, 2, 5, 8, 10],
+    '60+': [0, 1, 3, 5, 7],
+  },
+  endurance: {
+    '20-30': [15, 12, 10, 8, 6],      // 2km run time in minutes: poor, below avg, avg, good, excellent
+    '31-40': [17, 14, 12, 10, 8],
+    '41-50': [20, 17, 14, 12, 10],
+    '51-60': [30, 25, 20, 17, 15],
+    '60+': [40, 35, 30, 25, 20],
+  },
+  flexibility: {
+    '20-30': [0, 1, 2, 3, 4],         // 0=can't reach, 1=ankles, 2=mid-shin, 3=toes, 4=palm flat
+    '31-40': [0, 1, 2, 3, 4],
+    '41-50': [0, 1, 2, 3, 4],
+    '51-60': [0, 1, 2, 3, 4],
+    '60+': [0, 1, 2, 3, 4],
+  },
+  cardio: {
+    '20-30': [90, 80, 70, 65, 60],    // resting heart rate: poor, below avg, avg, good, excellent
+    '31-40': [95, 85, 75, 70, 65],
+    '41-50': [100, 90, 80, 75, 70],
+    '51-60': [105, 95, 85, 80, 75],
+    '60+': [110, 100, 90, 85, 80],
+  },
+};
+
 const assessmentTests = [
   {
-    id: 'pushups',
-    title: 'Push-ups Test',
-    description: 'How many push-ups can you do in 1 minute?',
+    id: 'strength',
+    title: 'Strength Test',
+    description: 'How many pull-ups/push-ups can you do continuously?',
     icon: '💪',
-    options: ['0-10', '11-20', '21-30', '31-40', '40+'],
+    options: ['0-2', '3-5', '6-10', '11-15', '15+'],
+    unit: 'reps',
   },
   {
-    id: 'plank',
-    title: 'Plank Hold Test',
-    description: 'How long can you hold a plank?',
-    icon: '🧘',
-    options: ['<30 sec', '30-60 sec', '1-2 min', '2-3 min', '3+ min'],
+    id: 'endurance',
+    title: 'Endurance Test',
+    description: 'How long does it take you to run/walk 2km?',
+    icon: '🏃',
+    options: ['20+ min', '15-20 min', '12-15 min', '10-12 min', '<10 min'],
+    unit: 'minutes',
   },
   {
     id: 'flexibility',
     title: 'Flexibility Test',
-    description: 'Can you touch your toes while standing?',
+    description: 'Standing with straight legs, how far can you reach?',
     icon: '🤸',
-    options: ['Not at all', 'Almost', 'Just barely', 'Easily', 'Palm flat'],
+    options: ['Above knees', 'Touch knees', 'Touch ankles', 'Touch toes', 'Palms flat on floor'],
+    unit: 'reach',
   },
   {
     id: 'cardio',
-    title: 'Cardio Test',
-    description: 'Can you run for 10 minutes without stopping?',
-    icon: '🏃',
-    options: ['No', 'With difficulty', 'Yes, moderate pace', 'Yes, fast pace', 'Yes, very fast'],
+    title: 'Cardiovascular Test',
+    description: 'What is your typical resting heart rate? (Check in the morning)',
+    icon: '❤️',
+    options: ['90+ bpm', '80-90 bpm', '70-80 bpm', '65-70 bpm', '<65 bpm'],
+    unit: 'bpm',
   },
 ];
 
@@ -59,42 +95,81 @@ export default function Assessment() {
     }
   };
 
+  const getAgeGroup = (age: number): string => {
+    if (age <= 30) return '20-30';
+    if (age <= 40) return '31-40';
+    if (age <= 50) return '41-50';
+    if (age <= 60) return '51-60';
+    return '60+';
+  };
+
   const calculateAndSaveResults = async (testAnswers: Record<string, string>) => {
     const userProfileStr = await AsyncStorage.getItem('userProfile');
     const userProfile = userProfileStr ? JSON.parse(userProfileStr) : {};
     
-    // Simple fitness age calculation (this is a simplified version)
     const actualAge = userProfile.age || 30;
-    let fitnessScore = 0;
+    const ageGroup = getAgeGroup(actualAge);
+    
+    // Calculate fitness score using age-adjusted benchmarks
+    let totalScore = 0;
+    let maxScore = 0;
+    const detailedScores: Record<string, number> = {};
 
-    // Score each test (0-4 points)
-    Object.values(testAnswers).forEach((answer) => {
-      const index = assessmentTests.find(t => testAnswers[t.id] === answer)?.options.indexOf(answer) || 0;
-      fitnessScore += index;
+    assessmentTests.forEach((test) => {
+      const answer = testAnswers[test.id];
+      const answerIndex = test.options.indexOf(answer);
+      
+      // Each test contributes 0-4 points based on performance
+      // Higher answerIndex = better performance
+      const testScore = answerIndex;
+      detailedScores[test.id] = testScore;
+      totalScore += testScore;
+      maxScore += 4; // Maximum 4 points per test
     });
 
-    // Calculate fitness age (lower score = older fitness age)
-    const maxScore = assessmentTests.length * 4;
-    const scorePercentage = (fitnessScore / maxScore) * 100;
+    // Calculate performance percentage
+    const performancePercentage = (totalScore / maxScore) * 100;
     
-    let fitnessAge: number;
-    if (scorePercentage >= 80) {
-      fitnessAge = actualAge - 10;
-    } else if (scorePercentage >= 60) {
-      fitnessAge = actualAge - 5;
-    } else if (scorePercentage >= 40) {
-      fitnessAge = actualAge;
-    } else if (scorePercentage >= 20) {
-      fitnessAge = actualAge + 5;
+    // Calculate fitness age based on performance
+    // Excellent (80-100%): 10 years younger
+    // Good (60-79%): 5 years younger
+    // Average (40-59%): Same age
+    // Below Average (20-39%): 5 years older
+    // Poor (0-19%): 10 years older
+    
+    let fitnessAgeAdjustment = 0;
+    let performanceLevel = 'Average';
+    
+    if (performancePercentage >= 80) {
+      fitnessAgeAdjustment = -10;
+      performanceLevel = 'Excellent';
+    } else if (performancePercentage >= 60) {
+      fitnessAgeAdjustment = -5;
+      performanceLevel = 'Good';
+    } else if (performancePercentage >= 40) {
+      fitnessAgeAdjustment = 0;
+      performanceLevel = 'Average';
+    } else if (performancePercentage >= 20) {
+      fitnessAgeAdjustment = 5;
+      performanceLevel = 'Below Average';
     } else {
-      fitnessAge = actualAge + 10;
+      fitnessAgeAdjustment = 10;
+      performanceLevel = 'Needs Improvement';
     }
+
+    const fitnessAge = Math.max(18, actualAge + fitnessAgeAdjustment);
 
     const assessmentResults = {
       tests: testAnswers,
-      fitnessScore,
-      fitnessAge: Math.max(18, fitnessAge),
+      detailedScores,
+      totalScore,
+      maxScore,
+      performancePercentage: Math.round(performancePercentage),
+      performanceLevel,
+      fitnessAge,
       actualAge,
+      ageGroup,
+      fitnessAgeAdjustment,
       assessmentDate: new Date().toISOString(),
     };
 
