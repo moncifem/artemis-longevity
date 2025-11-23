@@ -1,26 +1,27 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  Dimensions, 
-  Alert, 
-  Modal, 
-  Animated,
-  Platform,
-  LayoutAnimation,
-  UIManager
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  Animated,
+  Dimensions,
+  LayoutAnimation,
+  Linking,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  UIManager,
+  View
+} from 'react-native';
 
 // Enable LayoutAnimation for Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -36,7 +37,7 @@ interface ExerciseProgress {
   currentSets: number;
   currentReps: number;
   notes: string;
-  lastCompleted?: string; // ISO Date string
+  lastCompleted?: string;
 }
 
 interface UserStats {
@@ -52,9 +53,22 @@ interface WorkoutProgress {
   [exerciseId: string]: ExerciseProgress;
 }
 
+interface WorkoutHistory {
+  [dateKey: string]: WorkoutProgress; // dateKey format: "2025-01-15"
+}
+
+interface EducationVideo {
+  id: number;
+  title: string;
+  duration: string;
+  url: string;
+  icon: string;
+  description: string;
+}
+
 // --- Data ---
 
-const LEVEL_THRESHOLDS = [0, 500, 1200, 2500, 5000, 10000]; // XP needed for each level
+const LEVEL_THRESHOLDS = [0, 500, 1200, 2500, 5000, 10000];
 
 const workoutExercises = [
   {
@@ -136,10 +150,71 @@ const workoutExercises = [
   },
 ];
 
+const educationVideos: EducationVideo[] = [
+  {
+    id: 1,
+    title: 'Setting up your space for strength training at home',
+    duration: '4:53',
+    url: 'https://www.youtube.com/watch?v=xevm2OpOXWU',
+    icon: '🏠',
+    description: 'Learn how to create the perfect workout space at home.',
+  },
+  {
+    id: 2,
+    title: 'What exercises should I choose?',
+    duration: '1:42',
+    url: 'https://www.youtube.com/watch?v=5vWREr7GmEY',
+    icon: '🎯',
+    description: 'Discover which exercises are best for your goals.',
+  },
+  {
+    id: 3,
+    title: 'What weight should I choose?',
+    duration: '4:41',
+    url: 'https://www.youtube.com/watch?v=l1ySeUR6lTo',
+    icon: '⚖️',
+    description: 'Find the right weight to maximize your results safely.',
+  },
+  {
+    id: 4,
+    title: 'What is progressive overload?',
+    duration: '2:31',
+    url: 'https://www.youtube.com/watch?v=OzeAJox3kiY',
+    icon: '📈',
+    description: 'Understand the key principle for building strength.',
+  },
+  {
+    id: 5,
+    title: 'Key terms explained',
+    duration: '7:18',
+    url: 'https://www.youtube.com/watch?v=nxN1KLn56Eg',
+    icon: '📚',
+    description: 'Master essential fitness terminology.',
+  },
+  {
+    id: 6,
+    title: 'What can I expect in my first strength training session?',
+    duration: '6:40',
+    url: 'https://www.youtube.com/watch?v=lE56gPQlLp8',
+    icon: '💪',
+    description: 'Prepare for your first workout with confidence.',
+  },
+  {
+    id: 7,
+    title: 'Warm up, cool-down and recovery',
+    duration: '3:57',
+    url: 'https://www.youtube.com/watch?v=kpC2FlFdBEk',
+    icon: '🧘',
+    description: 'Learn proper warm-up and recovery techniques.',
+  },
+];
+
 export default function ExercisesScreen() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'dark'];
   
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistory>({});
   const [workoutProgress, setWorkoutProgress] = useState<WorkoutProgress>({});
   const [userStats, setUserStats] = useState<UserStats>({
     level: 1,
@@ -151,11 +226,10 @@ export default function ExercisesScreen() {
   });
   const [selectedExercise, setSelectedExercise] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [educationModalVisible, setEducationModalVisible] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
 
-  // Animation values
   const xpBarAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useFocusEffect(
     React.useCallback(() => {
@@ -164,7 +238,6 @@ export default function ExercisesScreen() {
   );
 
   useEffect(() => {
-    // Animate XP bar when stats change
     const progress = userStats.currentXP / userStats.nextLevelXP;
     Animated.timing(xpBarAnim, {
       toValue: progress,
@@ -173,19 +246,36 @@ export default function ExercisesScreen() {
     }).start();
   }, [userStats]);
 
+  useEffect(() => {
+    // Load progress for selected date
+    const dateKey = formatDateKey(selectedDate);
+    setWorkoutProgress(workoutHistory[dateKey] || {});
+  }, [selectedDate, workoutHistory]);
+
+  const formatDateKey = (date: Date): string => {
+    return date.toISOString().split('T')[0];
+  };
+
   const loadData = async () => {
     try {
-      const [progressStr, statsStr] = await Promise.all([
-        AsyncStorage.getItem('workoutProgress'),
+      const [historyStr, statsStr] = await Promise.all([
+        AsyncStorage.getItem('workoutHistory'),
         AsyncStorage.getItem('userStats'),
       ]);
 
-      if (progressStr) setWorkoutProgress(JSON.parse(progressStr));
-      
+      let history: WorkoutHistory = {};
+      if (historyStr) {
+        history = JSON.parse(historyStr);
+      } else {
+        // Generate mock history for past 14 days
+        history = generateMockHistory();
+        await AsyncStorage.setItem('workoutHistory', JSON.stringify(history));
+      }
+      setWorkoutHistory(history);
+
       if (statsStr) {
         setUserStats(JSON.parse(statsStr));
       } else {
-        // Initialize stats if new user
         const initialStats = {
           level: 1,
           currentXP: 0,
@@ -202,20 +292,64 @@ export default function ExercisesScreen() {
     }
   };
 
+  const generateMockHistory = (): WorkoutHistory => {
+    const history: WorkoutHistory = {};
+    const today = new Date();
+    
+    for (let i = 1; i <= 14; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateKey = formatDateKey(date);
+      
+      // 70% chance of having a workout on any given day
+      if (Math.random() > 0.3) {
+        const mockProgress: WorkoutProgress = {};
+        
+        // Randomly complete 3-7 exercises
+        const numCompleted = 3 + Math.floor(Math.random() * 5);
+        const shuffled = [...workoutExercises].sort(() => Math.random() - 0.5);
+        
+        for (let j = 0; j < numCompleted && j < shuffled.length; j++) {
+          const exercise = shuffled[j];
+          mockProgress[exercise.id] = {
+            completed: true,
+            currentSets: parseInt(exercise.sets.split('–')[0]),
+            currentReps: parseInt(exercise.reps.split('–')[0]) + Math.floor(Math.random() * 3),
+            notes: '',
+            lastCompleted: date.toISOString(),
+          };
+        }
+        
+        history[dateKey] = mockProgress;
+      }
+    }
+    
+    return history;
+  };
+
   const triggerHaptic = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   const handleExerciseComplete = async (exerciseId: string, xpReward: number) => {
+    const today = new Date();
+    const isToday = formatDateKey(selectedDate) === formatDateKey(today);
+    
+    if (!isToday) {
+      Alert.alert('Past Date', 'You can only mark exercises complete for today!');
+      return;
+    }
+
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     
     const isCompleting = !workoutProgress[exerciseId]?.completed;
     const now = new Date().toISOString();
+    const dateKey = formatDateKey(selectedDate);
     
     const newProgress = { ...workoutProgress };
+    const newHistory = { ...workoutHistory };
     
     if (isCompleting) {
-      // Mark as complete
       newProgress[exerciseId] = {
         completed: true,
         currentSets: parseInt(workoutExercises.find(e => e.id === exerciseId)?.sets.split('–')[0] || '2'),
@@ -224,22 +358,17 @@ export default function ExercisesScreen() {
         lastCompleted: now,
       };
       triggerHaptic();
-      
-      // Update Stats
       updateStats(xpReward);
     } else {
-      // Uncheck (remove XP logic if strict, but for now just toggle off)
       delete newProgress[exerciseId];
-      // Optional: Deduct XP? Usually better to not punish in gamification, 
-      // but for accuracy we might want to track session-based XP instead.
-      // For this simple version, we keep XP earned to encourage usage.
     }
 
+    newHistory[dateKey] = newProgress;
+    setWorkoutHistory(newHistory);
     setWorkoutProgress(newProgress);
-    await AsyncStorage.setItem('workoutProgress', JSON.stringify(newProgress));
+    await AsyncStorage.setItem('workoutHistory', JSON.stringify(newHistory));
     
-    // Check if all completed for celebration
-    const allCompleted = workoutExercises.every(ex => newProgress[ex.id]?.completed || (ex.id === exerciseId && isCompleting));
+    const allCompleted = workoutExercises.every(ex => newProgress[ex.id]?.completed);
     if (allCompleted && isCompleting) {
       setShowCelebration(true);
       setTimeout(() => setShowCelebration(false), 3000);
@@ -251,7 +380,6 @@ export default function ExercisesScreen() {
     const today = new Date().toISOString().split('T')[0];
     const lastDate = lastWorkoutDate ? lastWorkoutDate.split('T')[0] : null;
 
-    // XP Logic
     currentXP += xpGained;
     if (currentXP >= nextLevelXP) {
       level++;
@@ -260,11 +388,9 @@ export default function ExercisesScreen() {
       Alert.alert('🎉 Level Up!', `You are now Level ${level}! Keep getting stronger!`);
     }
 
-    // Streak Logic
     if (today !== lastDate) {
       totalWorkouts++;
       
-      // Check if consecutive day
       if (lastDate) {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
@@ -273,7 +399,7 @@ export default function ExercisesScreen() {
         if (lastDate === yesterdayStr) {
           streak++;
         } else {
-          streak = 1; // Reset or start new
+          streak = 1;
         }
       } else {
         streak = 1;
@@ -300,22 +426,26 @@ export default function ExercisesScreen() {
     return "Longevity Master";
   };
 
-  const getWeeklyCalendar = () => {
-    const today = new Date();
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      days.push(d);
+  const navigateDate = (direction: 'prev' | 'next') => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
+    
+    // Don't allow future dates
+    if (newDate > new Date()) {
+      return;
     }
-    return days;
+    
+    setSelectedDate(newDate);
   };
 
-  const isDayCompleted = (date: Date) => {
-    // In a real app, we'd query a workout history log. 
-    // For this demo, we'll assume if lastWorkoutDate matches, it's done.
-    if (!userStats.lastWorkoutDate) return false;
-    return userStats.lastWorkoutDate.startsWith(date.toISOString().split('T')[0]);
+  const isToday = formatDateKey(selectedDate) === formatDateKey(new Date());
+  const isFutureDate = selectedDate > new Date();
+
+  const openEducationVideo = (url: string) => {
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'Could not open video');
+    });
   };
 
   // --- Render Helpers ---
@@ -330,9 +460,17 @@ export default function ExercisesScreen() {
           <Text style={[styles.greeting, { color: theme.textSecondary }]}>Welcome back,</Text>
           <Text style={[styles.userName, { color: theme.text }]}>Fitness Warrior</Text>
         </View>
-        <View style={styles.streakContainer}>
-          <Text style={styles.streakText}>{userStats.streak}</Text>
-          <Ionicons name="flame" size={24} color="#F59E0B" />
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={[styles.educationButton, { backgroundColor: theme.input }]}
+            onPress={() => setEducationModalVisible(true)}
+          >
+            <Ionicons name="school" size={20} color={theme.primary} />
+          </TouchableOpacity>
+          <View style={styles.streakContainer}>
+            <Text style={styles.streakText}>{userStats.streak}</Text>
+            <Ionicons name="flame" size={24} color="#F59E0B" />
+          </View>
         </View>
       </View>
 
@@ -362,35 +500,42 @@ export default function ExercisesScreen() {
         </View>
       </View>
 
-      {/* Weekly Calendar Strip */}
-      <View style={styles.calendarStrip}>
-        {getWeeklyCalendar().map((date, index) => {
-          const isToday = date.toDateString() === new Date().toDateString();
-          const completed = isDayCompleted(date) || (isToday && Object.keys(workoutProgress).length > 0); // Simple check for today
-          
-          return (
-            <View key={index} style={styles.dayItem}>
-              <Text style={[styles.dayName, { color: isToday ? theme.primary : theme.textSecondary }]}>
-                {date.toLocaleDateString('en-US', { weekday: 'narrow' })}
-              </Text>
-              <View style={[
-                styles.dayCircle, 
-                { 
-                  backgroundColor: completed ? theme.primary : theme.input,
-                  borderColor: isToday ? theme.primary : 'transparent',
-                  borderWidth: isToday ? 1 : 0,
-                }
-              ]}>
-                <Text style={[
-                  styles.dayNumber, 
-                  { color: completed ? '#FFFFFF' : theme.text }
-                ]}>
-                  {date.getDate()}
-                </Text>
-              </View>
-            </View>
-          );
-        })}
+      {/* Date Navigator */}
+      <View style={styles.dateNavigator}>
+        <TouchableOpacity 
+          style={[styles.dateNavButton, { backgroundColor: theme.input }]}
+          onPress={() => navigateDate('prev')}
+        >
+          <Ionicons name="chevron-back" size={20} color={theme.text} />
+        </TouchableOpacity>
+        
+        <View style={styles.dateDisplay}>
+          <Text style={[styles.dateText, { color: theme.text }]}>
+            {isToday ? 'Today' : selectedDate.toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric',
+              year: selectedDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined 
+            })}
+          </Text>
+          <Text style={[styles.dayText, { color: theme.textSecondary }]}>
+            {selectedDate.toLocaleDateString('en-US', { weekday: 'long' })}
+          </Text>
+        </View>
+        
+        <TouchableOpacity 
+          style={[
+            styles.dateNavButton, 
+            { backgroundColor: isFutureDate || isToday ? theme.cardBorder : theme.input }
+          ]}
+          onPress={() => navigateDate('next')}
+          disabled={isFutureDate || isToday}
+        >
+          <Ionicons 
+            name="chevron-forward" 
+            size={20} 
+            color={isFutureDate || isToday ? theme.textSecondary : theme.text} 
+          />
+        </TouchableOpacity>
       </View>
     </LinearGradient>
   );
@@ -407,11 +552,23 @@ export default function ExercisesScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Today's Mission</Text>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            {isToday ? "Today's Mission" : 'Workout History'}
+          </Text>
           <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
             {Object.keys(workoutProgress).length}/{workoutExercises.length} Complete
           </Text>
         </View>
+
+        {!isToday && Object.keys(workoutProgress).length === 0 && (
+          <View style={[styles.emptyState, { backgroundColor: theme.card, borderColor: theme.cardBorder, borderWidth: 1 }]}>
+            <Text style={styles.emptyStateEmoji}>📅</Text>
+            <Text style={[styles.emptyStateText, { color: theme.text }]}>No workout recorded</Text>
+            <Text style={[styles.emptyStateSubtext, { color: theme.textSecondary }]}>
+              Rest day or data not available
+            </Text>
+          </View>
+        )}
 
         {workoutExercises.map((exercise, index) => {
           const isCompleted = workoutProgress[exercise.id]?.completed;
@@ -462,6 +619,7 @@ export default function ExercisesScreen() {
                   e.stopPropagation();
                   handleExerciseComplete(exercise.id, exercise.xp);
                 }}
+                disabled={!isToday}
               >
                 {isCompleted && <Ionicons name="checkmark" size={20} color="#FFFFFF" />}
               </TouchableOpacity>
@@ -480,7 +638,7 @@ export default function ExercisesScreen() {
         </View>
       )}
 
-      {/* Detail Modal */}
+      {/* Exercise Detail Modal */}
       <Modal
         visible={modalVisible}
         animationType="fade"
@@ -528,28 +686,113 @@ export default function ExercisesScreen() {
                     <Text style={[styles.modalNotesText, { color: theme.text }]}>{selectedExercise.notes}</Text>
                   </View>
 
-                  <TouchableOpacity
-                    style={[
-                      styles.completeButton,
-                      { backgroundColor: workoutProgress[selectedExercise.id]?.completed ? theme.input : theme.primary }
-                    ]}
-                    onPress={() => {
-                      handleExerciseComplete(selectedExercise.id, selectedExercise.xp);
-                      setModalVisible(false);
-                    }}
-                  >
-                    <Text style={[
-                      styles.completeButtonText,
-                      { color: workoutProgress[selectedExercise.id]?.completed ? theme.text : '#FFFFFF' }
-                    ]}>
-                      {workoutProgress[selectedExercise.id]?.completed ? 'Mark Incomplete' : 'Complete Exercise'}
-                    </Text>
-                  </TouchableOpacity>
+                  {isToday && (
+                    <TouchableOpacity
+                      style={[
+                        styles.completeButton,
+                        { backgroundColor: workoutProgress[selectedExercise.id]?.completed ? theme.input : theme.primary }
+                      ]}
+                      onPress={() => {
+                        handleExerciseComplete(selectedExercise.id, selectedExercise.xp);
+                        setModalVisible(false);
+                      }}
+                    >
+                      <Text style={[
+                        styles.completeButtonText,
+                        { color: workoutProgress[selectedExercise.id]?.completed ? theme.text : '#FFFFFF' }
+                      ]}>
+                        {workoutProgress[selectedExercise.id]?.completed ? 'Mark Incomplete' : 'Complete Exercise'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </>
             )}
           </View>
         </View>
+      </Modal>
+
+      {/* Education Modal */}
+      <Modal
+        visible={educationModalVisible}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setEducationModalVisible(false)}
+      >
+        <LinearGradient
+          colors={theme.gradients.background}
+          style={styles.educationModalContainer}
+        >
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          
+          <View style={styles.educationHeader}>
+            <View style={styles.educationHeaderContent}>
+              <View style={[styles.educationIconCircle, { backgroundColor: theme.input }]}>
+                <Ionicons name="school" size={32} color={theme.primary} />
+              </View>
+              <View style={styles.educationHeaderText}>
+                <Text style={[styles.educationTitle, { color: theme.text }]}>Learn the Basics</Text>
+                <Text style={[styles.educationSubtitle, { color: theme.textSecondary }]}>
+                  STRONGER at HOME Series
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity 
+              style={[styles.educationCloseButton, { backgroundColor: theme.card }]}
+              onPress={() => setEducationModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color={theme.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView 
+            style={styles.educationContent}
+            contentContainerStyle={styles.educationScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={[styles.educationIntro, { backgroundColor: theme.card, borderColor: theme.cardBorder, borderWidth: 1 }]}>
+              <Text style={[styles.educationIntroText, { color: theme.text }]}>
+                Watch these educational videos to master the fundamentals of strength training at home.
+              </Text>
+            </View>
+
+            {educationVideos.map((video, index) => (
+              <TouchableOpacity
+                key={video.id}
+                style={[styles.videoCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, borderWidth: 1 }]}
+                onPress={() => openEducationVideo(video.url)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.videoCardHeader}>
+                  <View style={[styles.videoNumber, { backgroundColor: theme.input }]}>
+                    <Text style={[styles.videoNumberText, { color: theme.primary }]}>{video.id}</Text>
+                  </View>
+                  <View style={[styles.videoDuration, { backgroundColor: 'rgba(0,0,0,0.8)' }]}>
+                    <Ionicons name="play" size={12} color="#FFFFFF" />
+                    <Text style={styles.videoDurationText}>{video.duration}</Text>
+                  </View>
+                </View>
+                
+                <View style={styles.videoCardContent}>
+                  <Text style={styles.videoIcon}>{video.icon}</Text>
+                  <View style={styles.videoInfo}>
+                    <Text style={[styles.videoTitle, { color: theme.text }]}>{video.title}</Text>
+                    <Text style={[styles.videoDescription, { color: theme.textSecondary }]}>
+                      {video.description}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                </View>
+              </TouchableOpacity>
+            ))}
+
+            <View style={styles.educationFooter}>
+              <Text style={[styles.educationFooterText, { color: theme.textSecondary }]}>
+                Videos from STRONGER at HOME program
+              </Text>
+            </View>
+          </ScrollView>
+        </LinearGradient>
       </Modal>
     </View>
   );
@@ -586,6 +829,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  educationButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   streakContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -601,7 +856,7 @@ const styles = StyleSheet.create({
     color: '#F59E0B',
   },
   levelContainer: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   levelInfo: {
     flexDirection: 'row',
@@ -626,29 +881,30 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 4,
   },
-  calendarStrip: {
+  dateNavigator: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  dayItem: {
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
+    gap: 16,
   },
-  dayName: {
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  dayCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  dateNavButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dayNumber: {
-    fontSize: 14,
-    fontWeight: '700',
+  dateDisplay: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  dateText: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  dayText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   content: {
     flex: 1,
@@ -669,6 +925,24 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  emptyState: {
+    padding: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyStateEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
   },
   exerciseCard: {
     flexDirection: 'row',
@@ -764,7 +1038,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 4,
   },
 
-  // Modal
+  // Exercise Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -850,5 +1124,136 @@ const styles = StyleSheet.create({
   completeButtonText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+
+  // Education Modal
+  educationModalContainer: {
+    flex: 1,
+  },
+  educationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+  },
+  educationHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  educationIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  educationHeaderText: {
+    flex: 1,
+  },
+  educationTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  educationSubtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  educationCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  educationContent: {
+    flex: 1,
+  },
+  educationScrollContent: {
+    padding: 20,
+  },
+  educationIntro: {
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 24,
+  },
+  educationIntroText: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '500',
+  },
+  videoCard: {
+    borderRadius: 20,
+    marginBottom: 16,
+    overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  videoCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 12,
+  },
+  videoNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoNumberText: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  videoDuration: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  videoDurationText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  videoCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  videoIcon: {
+    fontSize: 32,
+  },
+  videoInfo: {
+    flex: 1,
+  },
+  videoTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  videoDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  educationFooter: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  educationFooterText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
