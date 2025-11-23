@@ -3,45 +3,14 @@ import {
   getGripStrengthPerformanceLevel,
   getGripStrengthReferenceValues
 } from '@/constants/grip-strength-norms';
-import { Colors } from '@/constants/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-// Age-adjusted fitness benchmarks
-const ageBenchmarks = {
-  strength: {
-    '20-30': [0, 5, 10, 15, 20],      // pull-ups: poor, below avg, avg, good, excellent
-    '31-40': [0, 4, 8, 12, 16],
-    '41-50': [0, 3, 6, 9, 12],
-    '51-60': [0, 2, 5, 8, 10],
-    '60+': [0, 1, 3, 5, 7],
-  },
-  endurance: {
-    '20-30': [15, 12, 10, 8, 6],      // 2km run time in minutes: poor, below avg, avg, good, excellent
-    '31-40': [17, 14, 12, 10, 8],
-    '41-50': [20, 17, 14, 12, 10],
-    '51-60': [30, 25, 20, 17, 15],
-    '60+': [40, 35, 30, 25, 20],
-  },
-  flexibility: {
-    '20-30': [0, 1, 2, 3, 4],         // 0=can't reach, 1=ankles, 2=mid-shin, 3=toes, 4=palm flat
-    '31-40': [0, 1, 2, 3, 4],
-    '41-50': [0, 1, 2, 3, 4],
-    '51-60': [0, 1, 2, 3, 4],
-    '60+': [0, 1, 2, 3, 4],
-  },
-  cardio: {
-    '20-30': [90, 80, 70, 65, 60],    // resting heart rate: poor, below avg, avg, good, excellent
-    '31-40': [95, 85, 75, 70, 65],
-    '41-50': [100, 90, 80, 75, 70],
-    '51-60': [105, 95, 85, 80, 75],
-    '60+': [110, 100, 90, 85, 80],
-  },
-};
+const { width } = Dimensions.get('window');
 
 const assessmentTests = [
   {
@@ -52,6 +21,7 @@ const assessmentTests = [
     inputType: 'number' as const,
     unit: 'kg',
     placeholder: 'Enter kg (e.g., 45)',
+    gradient: ['#F3E8FF', '#FCE7F3'] as const,
   },
   {
     id: 'endurance',
@@ -60,6 +30,7 @@ const assessmentTests = [
     icon: '🏃',
     options: ['20+ min', '15-20 min', '12-15 min', '10-12 min', '<10 min'],
     unit: 'minutes',
+    gradient: ['#DDD6FE', '#FBCFE8'] as const,
   },
   {
     id: 'flexibility',
@@ -68,6 +39,7 @@ const assessmentTests = [
     icon: '🤸',
     options: ['Above knees', 'Touch knees', 'Touch ankles', 'Touch toes', 'Palms flat on floor'],
     unit: 'reach',
+    gradient: ['#C4B5FD', '#F9A8D4'] as const,
   },
   {
     id: 'cardio',
@@ -76,6 +48,7 @@ const assessmentTests = [
     icon: '❤️',
     options: ['90+ bpm', '80-90 bpm', '70-80 bpm', '65-70 bpm', '<65 bpm'],
     unit: 'bpm',
+    gradient: ['#A78BFA', '#F472B6'] as const,
   },
 ];
 
@@ -174,7 +147,7 @@ export default function Assessment() {
     const userProfile = userProfileStr ? JSON.parse(userProfileStr) : {};
     
     const actualAge = userProfile.age || 30;
-    const sex = userProfile.sex || 'male'; // Default to male if not specified
+    const sex = userProfile.sex || 'male';
     const ageGroup = getAgeGroup(actualAge);
     
     // Calculate fitness score using age-adjusted benchmarks
@@ -187,7 +160,6 @@ export default function Assessment() {
       let testScore = 0;
       
       if (test.id === 'gripStrength') {
-        // Calculate grip strength score using normative data
         const gripStrength = parseFloat(answer);
         if (!isNaN(gripStrength)) {
           const percentile = calculateGripStrengthPercentile(gripStrength, sex, actualAge);
@@ -198,25 +170,16 @@ export default function Assessment() {
           detailedScores[`${test.id}_level`] = performance.level;
         }
       } else if ('options' in test && test.options) {
-        // Original scoring for multiple choice tests
         const answerIndex = test.options.indexOf(answer);
         testScore = answerIndex;
         detailedScores[test.id] = testScore;
       }
       
       totalScore += testScore;
-      maxScore += 4; // Maximum 4 points per test
+      maxScore += 4;
     });
 
-    // Calculate performance percentage
     const performancePercentage = (totalScore / maxScore) * 100;
-    
-    // Calculate fitness age based on performance
-    // Excellent (80-100%): 10 years younger
-    // Good (60-79%): 5 years younger
-    // Average (40-59%): Same age
-    // Below Average (20-39%): 5 years older
-    // Poor (0-19%): 10 years older
     
     let fitnessAgeAdjustment = 0;
     let performanceLevel = 'Average';
@@ -257,7 +220,6 @@ export default function Assessment() {
     await AsyncStorage.setItem('assessmentResults', JSON.stringify(assessmentResults));
     await AsyncStorage.setItem('hasOnboarded', 'true');
     
-    // Navigate to results or main app
     router.replace('/(tabs)');
   };
 
@@ -275,56 +237,95 @@ export default function Assessment() {
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={['#FAF5FF', '#FFFFFF', '#FDF2F8']}
+      style={styles.container}
+    >
       <StatusBar style="dark" />
+      
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backText}>←</Text>
+          <LinearGradient
+            colors={['#F3E8FF', '#FFFFFF']}
+            style={styles.backButtonGradient}
+          >
+            <Text style={styles.backText}>←</Text>
+          </LinearGradient>
         </TouchableOpacity>
-        <Text style={styles.stepText}>
-          Test {currentTest + 1} / {assessmentTests.length}
-        </Text>
+        <View style={styles.stepIndicator}>
+          <Text style={styles.stepText}>{currentTest + 1}</Text>
+          <Text style={styles.stepDivider}>/</Text>
+          <Text style={styles.stepTotal}>{assessmentTests.length}</Text>
+        </View>
       </View>
 
-      <View style={styles.progressBar}>
-        <View style={[
-          styles.progress, 
-          { width: `${((currentTest + 1) / assessmentTests.length) * 100}%` }
-        ]} />
+      {/* Progress bar */}
+      <View style={styles.progressBarContainer}>
+        <View style={styles.progressBarBg}>
+          <LinearGradient
+            colors={['#8B5CF6', '#EC4899']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[
+              styles.progressBarFill, 
+              { width: `${((currentTest + 1) / assessmentTests.length) * 100}%` }
+            ]}
+          />
+        </View>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        <LinearGradient
-          colors={['#F3E8FF', '#FFFFFF']}
-          style={styles.testCard}
-        >
-          <Text style={styles.testIcon}>{currentTestData.icon}</Text>
-          <Text style={styles.testTitle}>{currentTestData.title}</Text>
-          <Text style={styles.testDescription}>{currentTestData.description}</Text>
-        </LinearGradient>
+        {/* Test Card */}
+        <View style={styles.testCardWrapper}>
+          <LinearGradient
+            colors={currentTestData.gradient}
+            style={styles.testCard}
+          >
+            <View style={styles.testIconContainer}>
+              <Text style={styles.testIcon}>{currentTestData.icon}</Text>
+            </View>
+            <Text style={styles.testTitle}>{currentTestData.title}</Text>
+            <Text style={styles.testDescription}>{currentTestData.description}</Text>
+          </LinearGradient>
+        </View>
 
         {'inputType' in currentTestData ? (
           // Input field for numeric tests (e.g., grip strength)
           <>
             <Text style={styles.selectText}>Enter your measurement:</Text>
             <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                value={inputValue}
-                onChangeText={setInputValue}
-                placeholder={currentTestData.placeholder || 'Enter value'}
-                keyboardType="decimal-pad"
-                placeholderTextColor="#9CA3AF"
-              />
-              <Text style={styles.inputUnit}>{currentTestData.unit}</Text>
+              <LinearGradient
+                colors={['#F3E8FF', '#FCE7F3']}
+                style={styles.inputGradient}
+              >
+                <TextInput
+                  style={styles.input}
+                  value={inputValue}
+                  onChangeText={setInputValue}
+                  placeholder={currentTestData.placeholder || 'Enter value'}
+                  keyboardType="decimal-pad"
+                  placeholderTextColor="#C4B5FD"
+                />
+                <Text style={styles.inputUnit}>{currentTestData.unit}</Text>
+              </LinearGradient>
             </View>
+            
             <TouchableOpacity
               style={styles.submitButton}
               onPress={handleInputSubmit}
+              activeOpacity={0.8}
             >
-              <Text style={styles.submitButtonText}>
-                {isLastTest ? 'Complete Assessment' : 'Next'}
-              </Text>
+              <LinearGradient
+                colors={['#8B5CF6', '#EC4899']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.submitButtonGradient}
+              >
+                <Text style={styles.submitButtonText}>
+                  {isLastTest ? 'Complete Assessment ✓' : 'Next →'}
+                </Text>
+              </LinearGradient>
             </TouchableOpacity>
             
             {/* Show reference values */}
@@ -335,16 +336,31 @@ export default function Assessment() {
               
               return (
                 <View style={styles.referenceContainer}>
-                  <Text style={styles.referenceTitle}>Reference Values ({refs.ageGroup} years, {sex}):</Text>
-                  <View style={styles.referenceRow}>
-                    <Text style={styles.referenceLabel}>Below Average: &lt;{refs.poor.toFixed(1)} kg</Text>
-                  </View>
-                  <View style={styles.referenceRow}>
-                    <Text style={styles.referenceLabel}>Average: ~{refs.average.toFixed(1)} kg</Text>
-                  </View>
-                  <View style={styles.referenceRow}>
-                    <Text style={styles.referenceLabel}>Excellent: &gt;{refs.excellent.toFixed(1)} kg</Text>
-                  </View>
+                  <LinearGradient
+                    colors={['#F3E8FF', '#FCE7F3']}
+                    style={styles.referenceGradient}
+                  >
+                    <Text style={styles.referenceTitle}>
+                      Reference Values ({refs.ageGroup} years, {sex})
+                    </Text>
+                    <View style={styles.referenceGrid}>
+                      <View style={styles.referenceItem}>
+                        <Text style={styles.referenceEmoji}>⭐</Text>
+                        <Text style={styles.referenceLabel}>Below Average</Text>
+                        <Text style={styles.referenceValue}>&lt;{refs.poor.toFixed(1)} kg</Text>
+                      </View>
+                      <View style={styles.referenceItem}>
+                        <Text style={styles.referenceEmoji}>⭐⭐</Text>
+                        <Text style={styles.referenceLabel}>Average</Text>
+                        <Text style={styles.referenceValue}>~{refs.average.toFixed(1)} kg</Text>
+                      </View>
+                      <View style={styles.referenceItem}>
+                        <Text style={styles.referenceEmoji}>⭐⭐⭐</Text>
+                        <Text style={styles.referenceLabel}>Excellent</Text>
+                        <Text style={styles.referenceValue}>&gt;{refs.excellent.toFixed(1)} kg</Text>
+                      </View>
+                    </View>
+                  </LinearGradient>
                 </View>
               );
             })()}
@@ -355,15 +371,19 @@ export default function Assessment() {
             <Text style={styles.selectText}>Select your answer:</Text>
             <View style={styles.optionsContainer}>
               {'options' in currentTestData && currentTestData.options?.map((option, index) => (
-                <TouchableOpacity
-                  key={option}
-                  style={[
-                    styles.optionButton,
-                    answers[currentTestData.id] === option && styles.optionButtonSelected,
-                  ]}
-                  onPress={() => handleAnswer(option)}
+              <TouchableOpacity
+                key={option}
+                style={styles.optionButton}
+                onPress={() => handleAnswer(option)}
+                activeOpacity={0.9}
+              >
+                <LinearGradient
+                  colors={answers[currentTestData.id] === option 
+                    ? ['#8B5CF6', '#EC4899'] as const
+                    : ['#FFFFFF', '#F9FAFB'] as const
+                  }
+                  style={styles.optionGradient}
                 >
-                  <View style={styles.optionContent}>
                     <View style={[
                       styles.optionNumber,
                       answers[currentTestData.id] === option && styles.optionNumberSelected,
@@ -381,7 +401,10 @@ export default function Assessment() {
                     ]}>
                       {option}
                     </Text>
-                  </View>
+                    {answers[currentTestData.id] === option && (
+                      <Text style={styles.optionCheck}>✓</Text>
+                    )}
+                  </LinearGradient>
                 </TouchableOpacity>
               ))}
             </View>
@@ -394,14 +417,13 @@ export default function Assessment() {
           <Text style={styles.skipText}>Skip Assessment</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -412,188 +434,276 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  backButtonGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   backText: {
-    fontSize: 28,
-    color: '#1F2937',
+    fontSize: 24,
+    color: '#8B5CF6',
+  },
+  stepIndicator: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
   },
   stepText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#8B5CF6',
+  },
+  stepDivider: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#C4B5FD',
+  },
+  stepTotal: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#C4B5FD',
   },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 20,
+  progressBarContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
-  progress: {
+  progressBarBg: {
+    height: 6,
+    backgroundColor: '#F3E8FF',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
     height: '100%',
-    backgroundColor: Colors.light.accent,
-    borderRadius: 2,
+    borderRadius: 3,
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: 24,
+  },
+  testCardWrapper: {
+    marginBottom: 32,
+    borderRadius: 32,
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
   },
   testCard: {
-    padding: 32,
-    borderRadius: 24,
+    padding: 40,
     alignItems: 'center',
-    marginBottom: 32,
+  },
+  testIconContainer: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   testIcon: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: 48,
   },
   testTitle: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.light.accent,
-    marginBottom: 8,
+    fontWeight: '800',
+    color: '#1F2937',
+    marginBottom: 12,
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   testDescription: {
     fontSize: 16,
     color: '#6B7280',
     textAlign: 'center',
+    lineHeight: 24,
   },
   selectText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#1F2937',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   optionsContainer: {
     gap: 12,
   },
   optionButton: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  optionButtonSelected: {
-    backgroundColor: '#FCE7F3',
-    borderColor: Colors.light.accent,
-  },
-  optionContent: {
+  optionGradient: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 20,
   },
   optionNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#E5E7EB',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3E8FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
   optionNumberSelected: {
-    backgroundColor: Colors.light.accent,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   optionNumberText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#6B7280',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#8B5CF6',
   },
   optionNumberTextSelected: {
     color: '#FFFFFF',
   },
   optionText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#1F2937',
     flex: 1,
   },
   optionTextSelected: {
-    color: Colors.light.accent,
-    fontWeight: '700',
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
-  footer: {
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-  },
-  skipButton: {
-    backgroundColor: '#F3F4F6',
-    paddingVertical: 16,
-    borderRadius: 30,
-    alignItems: 'center',
-  },
-  skipText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.light.accent,
+  optionCheck: {
+    fontSize: 20,
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
   inputContainer: {
+    marginBottom: 24,
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  inputGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAF5FF',
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#F3E8FF',
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 4,
   },
   input: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 24,
+    fontWeight: '700',
     color: '#1F2937',
     paddingVertical: 20,
   },
   inputUnit: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginLeft: 8,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#8B5CF6',
+    marginLeft: 12,
   },
   submitButton: {
-    backgroundColor: Colors.light.accent,
-    paddingVertical: 18,
-    borderRadius: 30,
-    alignItems: 'center',
+    borderRadius: 28,
+    overflow: 'hidden',
     marginBottom: 24,
-    shadowColor: Colors.light.accent,
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  submitButtonGradient: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   submitButtonText: {
     fontSize: 18,
     fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   referenceContainer: {
-    backgroundColor: '#FCE7F3',
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#FBCFE8',
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  referenceGradient: {
+    padding: 24,
   },
   referenceTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#831843',
-    marginBottom: 12,
+    color: '#1F2937',
+    marginBottom: 16,
+    textAlign: 'center',
   },
-  referenceRow: {
+  referenceGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  referenceItem: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    padding: 16,
+    borderRadius: 16,
+  },
+  referenceEmoji: {
+    fontSize: 20,
     marginBottom: 8,
   },
   referenceLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  referenceValue: {
     fontSize: 14,
-    color: '#4B5563',
-    fontWeight: '500',
+    fontWeight: '800',
+    color: '#8B5CF6',
+    textAlign: 'center',
+  },
+  footer: {
+    padding: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderTopWidth: 1,
+    borderTopColor: '#F3E8FF',
+  },
+  skipButton: {
+    backgroundColor: '#F3E8FF',
+    paddingVertical: 18,
+    borderRadius: 28,
+    alignItems: 'center',
+  },
+  skipText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#8B5CF6',
   },
 });
-

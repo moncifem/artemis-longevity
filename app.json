@@ -9,7 +9,17 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.artemislongevity.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSHealthShareUsageDescription": "Artemis needs access to your Health data to provide personalized fitness insights, track your activity, sleep, heart rate, and help calculate your fitness age.",
+        "NSHealthUpdateUsageDescription": "Artemis would like to update your Health data."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": []
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -46,6 +56,12 @@
     },
     "packagerOpts": {
       "lanType": "ip"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "22c346a3-c535-459b-8e98-0e4c80a3f757"
+      }
     }
   }
 }

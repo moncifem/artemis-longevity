@@ -1,9 +1,11 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { estimateActivityScore, estimateReadinessScore, estimateSleepScore, getHealthData, HealthDataSource } from '@/services/health-data-service';
 import { getDailyActivity, getDailyReadiness, getDailySleep, getDateString, getDateTimeString, getHeartRate } from '@/services/oura-api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Dimensions, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -44,6 +46,7 @@ interface OuraData {
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -51,13 +54,14 @@ export default function HomeScreen() {
   const [ouraData, setOuraData] = useState<OuraData | null>(null);
   const [isLoadingOura, setIsLoadingOura] = useState(false);
   const [isOuraConnected, setIsOuraConnected] = useState(false);
+  const [healthDataSource, setHealthDataSource] = useState<HealthDataSource>('none');
   const [refreshing, setRefreshing] = useState(false);
   const stepsIntervalRef = useRef<number | null>(null);
   const bpmIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     loadUserData();
-    loadOuraData();
+    loadHealthData();
 
     // Set up polling intervals
     setupPolling();
@@ -68,6 +72,46 @@ export default function HomeScreen() {
       if (bpmIntervalRef.current) clearInterval(bpmIntervalRef.current);
     };
   }, []);
+
+  const loadHealthData = async () => {
+    try {
+      setIsLoadingOura(true);
+      
+      // Get data from active health source
+      const { data, source } = await getHealthData();
+      setHealthDataSource(source);
+      
+      if (source === 'oura') {
+        setIsOuraConnected(true);
+      }
+      
+      if (data) {
+        // If using Apple Health, estimate scores
+        if (source === 'apple-health' && data) {
+          const activityScore = estimateActivityScore(data.steps || 0, data.activeCalories || 0);
+          const sleepScore = estimateSleepScore(data.sleepHours || 0, data.sleepEfficiency || 0);
+          const readinessScore = estimateReadinessScore(
+            data.restingHR || 0,
+            data.hrvBalance || 0,
+            sleepScore
+          );
+          
+          setOuraData({
+            ...data,
+            activityScore,
+            sleepScore,
+            readinessScore,
+          } as OuraData);
+        } else {
+          setOuraData(data as OuraData);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading health data:', error);
+    } finally {
+      setIsLoadingOura(false);
+    }
+  };
 
   const setupPolling = async () => {
     const ouraToken = await AsyncStorage.getItem('ouraApiToken');
@@ -265,11 +309,15 @@ export default function HomeScreen() {
     setRefreshing(true);
     await Promise.all([
       loadUserData(), 
-      loadOuraData(), 
-      loadStepsAndCalories(), 
-      loadHeartRate()
+      loadHealthData(), 
+      healthDataSource === 'oura' ? loadStepsAndCalories() : Promise.resolve(),
+      healthDataSource === 'oura' ? loadHeartRate() : Promise.resolve()
     ]);
     setRefreshing(false);
+  };
+
+  const handleConnectHealth = () => {
+    router.push('/apple-health-connect' as any);
   };
 
   // Use Oura data if available, otherwise show mock data
@@ -297,10 +345,23 @@ export default function HomeScreen() {
             </Text>
           </View>
           <View style={styles.headerRight}>
-            {isOuraConnected && (
+            {healthDataSource === 'oura' && (
               <View style={styles.ouraIndicator}>
                 <Text style={styles.ouraRing}>💍</Text>
               </View>
+            )}
+            {healthDataSource === 'apple-health' && (
+              <View style={styles.ouraIndicator}>
+                <Text style={styles.ouraRing}>🍎</Text>
+              </View>
+            )}
+            {healthDataSource === 'none' && (
+              <TouchableOpacity 
+                style={[styles.connectHealthButton, { backgroundColor: colors.primary }]}
+                onPress={handleConnectHealth}
+              >
+                <Text style={styles.connectHealthText}>Connect</Text>
+              </TouchableOpacity>
             )}
             <TouchableOpacity style={[styles.notificationButton, { backgroundColor: colors.card }]}>
               <Ionicons name="notifications-outline" size={24} color={colors.primary} />
@@ -339,8 +400,8 @@ export default function HomeScreen() {
           </LinearGradient>
         )}
 
-        {/* Oura Health Cards */}
-        {isOuraConnected && ouraData && (
+        {/* Health Cards */}
+        {healthDataSource !== 'none' && ouraData && (
           <>
             <View style={styles.ouraScoresContainer}>
               <ScoreCard 
@@ -441,17 +502,24 @@ export default function HomeScreen() {
           <View style={styles.cardHeader}>
             <View>
               <Text style={[styles.cardTitle, { color: colors.text }]}>
-                {isOuraConnected ? "Today's Activity" : "Activity (Demo)"}
+                {healthDataSource !== 'none' ? "Today's Activity" : "Activity (Demo)"}
               </Text>
-              {isOuraConnected && (
+              {healthDataSource === 'oura' && (
                 <Text style={[styles.sleepTimeLabel, { color: colors.icon, marginTop: 2 }]}>
                   Activity Day: 4 AM - 4 AM
                 </Text>
               )}
+              {healthDataSource === 'apple-health' && (
+                <Text style={[styles.sleepTimeLabel, { color: colors.icon, marginTop: 2 }]}>
+                  Synced with Apple Health
+                </Text>
+              )}
             </View>
             {isLoadingOura && <ActivityIndicator size="small" color={colors.primary} />}
-            {!isOuraConnected && (
-              <Text style={[styles.demoLabel, { color: colors.icon }]}>Connect Oura 💍</Text>
+            {healthDataSource === 'none' && (
+              <TouchableOpacity onPress={handleConnectHealth}>
+                <Text style={[styles.demoLabel, { color: colors.primary }]}>Connect Health 🍎</Text>
+              </TouchableOpacity>
             )}
           </View>
 
@@ -649,6 +717,16 @@ const styles = StyleSheet.create({
   },
   ouraRing: {
     fontSize: 24,
+  },
+  connectHealthButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  connectHealthText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   notificationButton: {
     width: 48,

@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/theme';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 const activityLevels = [
   {
@@ -11,30 +14,35 @@ const activityLevels = [
     title: 'Sedentary',
     description: 'Little to no exercise',
     icon: '🪑',
+    gradient: ['#F3E8FF', '#FCE7F3'],
   },
   {
     id: 'light',
     title: 'Light',
     description: 'Exercise 1-2 times per week',
     icon: '🚶',
+    gradient: ['#DDD6FE', '#FBCFE8'],
   },
   {
     id: 'moderate',
     title: 'Moderate',
     description: 'Exercise 3-4 times per week',
     icon: '🏃',
+    gradient: ['#C4B5FD', '#F9A8D4'],
   },
   {
     id: 'active',
     title: 'Active',
     description: 'Exercise 5-6 times per week',
     icon: '🏋️',
+    gradient: ['#A78BFA', '#F472B6'],
   },
   {
     id: 'very-active',
     title: 'Very Active',
     description: 'Exercise daily or intense training',
     icon: '💪',
+    gradient: ['#8B5CF6', '#EC4899'],
   },
 ];
 
@@ -54,58 +62,89 @@ export default function ActivityLevel() {
   };
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={['#FAF5FF', '#FFFFFF', '#FDF2F8']}
+      style={styles.container}
+    >
       <StatusBar style="dark" />
+      
+      {/* Header with glassmorphism effect */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Text style={styles.backText}>←</Text>
+          <LinearGradient
+            colors={['#F3E8FF', '#FFFFFF']}
+            style={styles.backButtonGradient}
+          >
+            <Text style={styles.backText}>←</Text>
+          </LinearGradient>
         </TouchableOpacity>
-        <Text style={styles.stepText}>5 / 6</Text>
+        <View style={styles.stepIndicator}>
+          <Text style={styles.stepText}>6</Text>
+          <Text style={styles.stepDivider}>/</Text>
+          <Text style={styles.stepTotal}>7</Text>
+        </View>
       </View>
 
-      <View style={styles.progressBar}>
-        <View style={[styles.progress, { width: '83%' }]} />
+      {/* Progress bar with gradient */}
+      <View style={styles.progressBarContainer}>
+        <View style={styles.progressBarBg}>
+          <LinearGradient
+            colors={['#8B5CF6', '#EC4899']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.progressBarFill, { width: '85%' }]}
+          />
+        </View>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.title}>
-          How <Text style={styles.titleHighlight}>Often</Text> Do You Exercise?
+          How <Text style={styles.titleHighlight}>Active</Text> Are You?
         </Text>
         <Text style={styles.subtitle}>
           This helps us understand your fitness level and create a personalized plan.
         </Text>
 
         <View style={styles.optionsContainer}>
-          {activityLevels.map((level) => (
+          {activityLevels.map((level, index) => (
             <TouchableOpacity
               key={level.id}
-              style={[
-                styles.optionCard,
-                selectedLevel === level.id && styles.optionCardSelected,
-              ]}
+              style={styles.optionCard}
               onPress={() => setSelectedLevel(level.id)}
+              activeOpacity={0.9}
             >
-              <Text style={styles.optionIcon}>{level.icon}</Text>
-              <View style={styles.optionContent}>
-                <Text style={[
-                  styles.optionTitle,
-                  selectedLevel === level.id && styles.optionTitleSelected,
+              <LinearGradient
+                colors={selectedLevel === level.id ? ['#8B5CF6', '#EC4899'] : level.gradient}
+                style={styles.optionCardGradient}
+              >
+                <View style={styles.optionIconContainer}>
+                  <Text style={styles.optionIcon}>{level.icon}</Text>
+                </View>
+                <View style={styles.optionContent}>
+                  <Text style={[
+                    styles.optionTitle,
+                    selectedLevel === level.id && styles.optionTitleSelected,
+                  ]}>
+                    {level.title}
+                  </Text>
+                  <Text style={[
+                    styles.optionDescription,
+                    selectedLevel === level.id && styles.optionDescriptionSelected,
+                  ]}>
+                    {level.description}
+                  </Text>
+                </View>
+                <View style={[
+                  styles.radio,
+                  selectedLevel === level.id && styles.radioSelected,
                 ]}>
-                  {level.title}
-                </Text>
-                <Text style={[
-                  styles.optionDescription,
-                  selectedLevel === level.id && styles.optionDescriptionSelected,
-                ]}>
-                  {level.description}
-                </Text>
-              </View>
-              <View style={[
-                styles.radio,
-                selectedLevel === level.id && styles.radioSelected,
-              ]}>
-                {selectedLevel === level.id && <View style={styles.radioInner} />}
-              </View>
+                  {selectedLevel === level.id && (
+                    <View style={styles.radioInner}>
+                      <Text style={styles.radioCheck}>✓</Text>
+                    </View>
+                  )}
+                </View>
+              </LinearGradient>
             </TouchableOpacity>
           ))}
         </View>
@@ -125,18 +164,25 @@ export default function ActivityLevel() {
           ]} 
           onPress={handleContinue}
           disabled={!selectedLevel}
+          activeOpacity={0.8}
         >
-          <Text style={styles.continueText}>Continue</Text>
+          <LinearGradient
+            colors={!selectedLevel ? ['#C4B5FD', '#F9A8D4'] : ['#8B5CF6', '#EC4899']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.continueButtonGradient}
+          >
+            <Text style={styles.continueText}>Continue</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -147,139 +193,201 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  backButtonGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
+    alignItems: 'center',
   },
   backText: {
-    fontSize: 28,
-    color: '#1F2937',
+    fontSize: 24,
+    color: '#8B5CF6',
+  },
+  stepIndicator: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
   },
   stepText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#8B5CF6',
+  },
+  stepDivider: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#C4B5FD',
+  },
+  stepTotal: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#C4B5FD',
   },
-  progressBar: {
-    height: 4,
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 20,
+  progressBarContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
-  progress: {
+  progressBarBg: {
+    height: 6,
+    backgroundColor: '#F3E8FF',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
     height: '100%',
-    backgroundColor: Colors.light.primary,
-    borderRadius: 2,
+    borderRadius: 3,
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: 24,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 36,
+    fontWeight: '800',
     color: '#1F2937',
     marginBottom: 12,
+    lineHeight: 42,
   },
   titleHighlight: {
-    color: Colors.light.primary,
+    color: '#8B5CF6',
   },
   subtitle: {
     fontSize: 16,
     color: '#6B7280',
-    marginBottom: 30,
+    marginBottom: 32,
+    lineHeight: 24,
   },
   optionsContainer: {
     gap: 16,
   },
   optionCard: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  optionCardGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    padding: 24,
   },
-  optionCardSelected: {
-    backgroundColor: '#F3E8FF',
-    borderColor: Colors.light.primary,
+  optionIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
   },
   optionIcon: {
-    fontSize: 32,
-    marginRight: 16,
+    fontSize: 28,
   },
   optionContent: {
     flex: 1,
   },
   optionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#1F2937',
     marginBottom: 4,
+    letterSpacing: 0.3,
   },
   optionTitleSelected: {
-    color: Colors.light.primary,
+    color: '#FFFFFF',
   },
   optionDescription: {
     fontSize: 14,
     color: '#6B7280',
+    fontWeight: '500',
   },
   optionDescriptionSelected: {
-    color: '#7C3AED',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   radio: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  radioSelected: {
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  radioInner: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  radioSelected: {
-    borderColor: Colors.light.primary,
-  },
-  radioInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Colors.light.primary,
+  radioCheck: {
+    color: '#8B5CF6',
+    fontSize: 14,
+    fontWeight: '800',
   },
   footer: {
     flexDirection: 'row',
     padding: 20,
     gap: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#F3E8FF',
   },
   skipButton: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
-    paddingVertical: 16,
-    borderRadius: 30,
+    backgroundColor: '#F3E8FF',
+    paddingVertical: 18,
+    borderRadius: 28,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   skipText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: Colors.light.primary,
+    fontWeight: '700',
+    color: '#8B5CF6',
   },
   continueButton: {
     flex: 2,
-    backgroundColor: Colors.light.primary,
-    paddingVertical: 16,
-    borderRadius: 30,
-    alignItems: 'center',
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
   },
   continueButtonDisabled: {
     opacity: 0.5,
   },
+  continueButtonGradient: {
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   continueText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
 });
-
