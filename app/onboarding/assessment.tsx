@@ -4,11 +4,6 @@ import {
   getGripStrengthReferenceValues
 } from '@/constants/grip-strength-norms';
 import {
-  SARC_F_QUESTIONS,
-  calculateSarcFScore,
-  interpretSarcFScore
-} from '@/constants/sarc-f-questionnaire';
-import {
   evaluateSingleLegStancePerformance,
   getSingleLegStanceReferenceValues
 } from '@/constants/single-leg-stance-norms';
@@ -72,14 +67,6 @@ const assessmentTests = [
     placeholder: 'Enter seconds (e.g., 25)',
     clinicalNote: 'Predicts fall risk and mortality (Validated: 2,000-5,000+ adults)',
   },
-  {
-    id: 'sarcF',
-    title: 'SARC-F Questionnaire',
-    description: 'Answer 5 questions about your functional abilities to screen for sarcopenia risk.',
-    icon: '📋',
-    questionnaire: SARC_F_QUESTIONS,
-    clinicalNote: 'International sarcopenia screening tool (Validated: 10,000+ older adults)',
-  },
 ];
 
 export default function Assessment() {
@@ -91,8 +78,6 @@ export default function Assessment() {
   const [inputValue, setInputValue] = useState('');
   const [userProfile, setUserProfile] = useState<any>(null);
   const [ouraDataLoaded, setOuraDataLoaded] = useState(false);
-  const [sarcFAnswers, setSarcFAnswers] = useState<Record<string, number>>({});
-  const [currentSarcFQuestion, setCurrentSarcFQuestion] = useState(0);
 
   // Load user profile on mount
   useEffect(() => {
@@ -154,22 +139,6 @@ export default function Assessment() {
     }
 
     handleAnswer(inputValue);
-  };
-
-  const handleSarcFAnswer = (score: number) => {
-    const currentQuestion = SARC_F_QUESTIONS[currentSarcFQuestion];
-    const newSarcFAnswers = { ...sarcFAnswers, [currentQuestion.id]: score };
-    setSarcFAnswers(newSarcFAnswers);
-
-    if (currentSarcFQuestion < SARC_F_QUESTIONS.length - 1) {
-      setTimeout(() => {
-        setCurrentSarcFQuestion(currentSarcFQuestion + 1);
-      }, 300);
-    } else {
-      // SARC-F complete, move to next test or finish
-      const totalScore = calculateSarcFScore(newSarcFAnswers);
-      handleAnswer(totalScore.toString());
-    }
   };
 
   const getAgeGroup = (age: number): string => {
@@ -270,23 +239,6 @@ export default function Assessment() {
             mortalityNote: performance.mortalityNote,
           };
         }
-      } else if (test.id === 'sarcF') {
-        const totalSarcF = parseFloat(answer);
-        if (!isNaN(totalSarcF)) {
-          const interpretation = interpretSarcFScore(totalSarcF);
-          testScore = interpretation.performanceScore;
-          detailedScores[test.id] = testScore;
-          detailedScores[`${test.id}_score`] = totalSarcF;
-          detailedScores[`${test.id}_level`] = interpretation.level;
-          detailedScores[`${test.id}_sarcopeniaRisk`] = interpretation.sarcopeniaRisk;
-          clinicalAssessments.sarcF = {
-            score: totalSarcF,
-            level: interpretation.level,
-            sarcopeniaRisk: interpretation.sarcopeniaRisk,
-            recommendation: interpretation.recommendation,
-            componentScores: sarcFAnswers,
-          };
-        }
       }
       
       totalScore += testScore;
@@ -335,7 +287,7 @@ export default function Assessment() {
       fitnessAgeAdjustment,
       assessmentDate: new Date().toISOString(),
       assessmentType: 'functional-fitness',
-      validatedTests: ['gripStrength', 'sitToStand', 'vo2max', 'singleLegStance', 'sarcF'],
+      validatedTests: ['gripStrength', 'sitToStand', 'vo2max', 'singleLegStance'],
     };
 
     await AsyncStorage.setItem('assessmentResults', JSON.stringify(assessmentResults));
@@ -441,44 +393,7 @@ export default function Assessment() {
           </LinearGradient>
         </View>
 
-        {'questionnaire' in currentTestData && currentTestData.questionnaire ? (
-          // SARC-F Questionnaire
-          <>
-            <Text style={[styles.selectText, { color: theme.text }]}>
-              Question {currentSarcFQuestion + 1} of {SARC_F_QUESTIONS.length}
-            </Text>
-            <View style={[styles.questionnaireContainer, { shadowColor: theme.shadow }]}>
-              <LinearGradient
-                colors={theme.gradients.card}
-                style={[styles.questionnaireCard, { borderColor: theme.cardBorder, borderWidth: 1 }]}
-              >
-                <Text style={[styles.questionnaireText, { color: theme.text }]}>
-                  {SARC_F_QUESTIONS[currentSarcFQuestion].question}
-                </Text>
-              </LinearGradient>
-            </View>
-            <View style={styles.optionsContainer}>
-              {SARC_F_QUESTIONS[currentSarcFQuestion].options.map((option, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.optionButton, { shadowColor: theme.shadow }]}
-                  onPress={() => handleSarcFAnswer(option.score)}
-                  activeOpacity={0.9}
-                >
-                  <LinearGradient
-                    colors={theme.gradients.card}
-                    style={[styles.optionGradient, { borderColor: theme.cardBorder, borderWidth: 1 }]}
-                  >
-                    <View style={[styles.optionNumber, { backgroundColor: theme.input }]}>
-                      <Text style={[styles.optionNumberText, { color: theme.primary }]}>{option.score}</Text>
-                    </View>
-                    <Text style={[styles.optionText, { color: theme.text }]}>{option.text}</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        ) : 'inputType' in currentTestData ? (
+        {'inputType' in currentTestData ? (
           // Input field for numeric tests
           <>
             <Text style={[styles.selectText, { color: theme.text }]}>Enter your measurement:</Text>
@@ -590,7 +505,9 @@ export default function Assessment() {
               );
             })()}
           </>
-        ) : null}
+        ) : (
+          <Text style={[styles.selectText, { color: theme.text }]}>Unknown test type</Text>
+        )}
       </ScrollView>
 
       <View style={[styles.footer, { borderTopColor: theme.cardBorder, backgroundColor: theme.glass }]}>
@@ -873,23 +790,5 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 16,
     fontWeight: '700',
-  },
-  questionnaireContainer: {
-    marginBottom: 24,
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  questionnaireCard: {
-    padding: 24,
-  },
-  questionnaireText: {
-    fontSize: 18,
-    fontWeight: '600',
-    lineHeight: 26,
-    textAlign: 'center',
   },
 });
