@@ -16,7 +16,7 @@ export default function UserInfo() {
   
   const [currentStep, setCurrentStep] = useState(1);
   const [name, setName] = useState('');
-  const [sex, setSex] = useState<'male' | 'female' | ''>('');
+  const [sex] = useState<'male' | 'female'>('female'); // App is for women only
   const [age, setAge] = useState('');
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
@@ -25,7 +25,7 @@ export default function UserInfo() {
   const [ouraChecked, setOuraChecked] = useState(false);
   const [appleHealthChecked, setAppleHealthChecked] = useState(false);
 
-  const totalSteps = 5;
+  const totalSteps = 4;
 
   // Check for health integrations on mount
   useEffect(() => {
@@ -60,7 +60,6 @@ export default function UserInfo() {
                           if (profile.age > 0) setAge(profile.age.toString());
                           if (profile.height > 0) setHeight(Math.round(profile.height).toString());
                           if (profile.weight > 0) setWeight(Math.round(profile.weight).toString());
-                          if (profile.sex) setSex(profile.sex as 'male' | 'female');
                           setHeightUnit('cm');
                           setWeightUnit('kg');
                           setAppleHealthChecked(true);
@@ -110,7 +109,6 @@ export default function UserInfo() {
                     setAge(ouraProfile.age.toString());
                     setHeight(ouraProfile.height.toString());
                     setWeight(ouraProfile.weight.toString());
-                    setSex(ouraProfile.sex);
                     setHeightUnit('cm');
                     setWeightUnit('kg');
                     setOuraChecked(true);
@@ -135,19 +133,15 @@ export default function UserInfo() {
       Alert.alert('Required', 'Please enter your name');
       return;
     }
-    if (currentStep === 2 && !sex) {
-      Alert.alert('Required', 'Please select your sex');
-      return;
-    }
-    if (currentStep === 3 && !age) {
+    if (currentStep === 2 && !age) {
       Alert.alert('Required', 'Please select your age');
       return;
     }
-    if (currentStep === 4 && !height) {
+    if (currentStep === 3 && !height) {
       Alert.alert('Required', 'Please enter your height');
       return;
     }
-    if (currentStep === 5 && !weight) {
+    if (currentStep === 4 && !weight) {
       Alert.alert('Required', 'Please enter your weight');
       return;
     }
@@ -240,76 +234,6 @@ export default function UserInfo() {
 
           {currentStep === 2 && (
             <StepContainer
-              title="Tell Us About You"
-              subtitle="This helps us provide accurate health insights tailored for you."
-              theme={theme}
-            >
-              <View style={styles.sexOptions}>
-                <TouchableOpacity
-                  style={[styles.sexButton, { shadowColor: theme.shadow }]}
-                  onPress={() => setSex('male')}
-                  activeOpacity={0.9}
-                >
-                  <LinearGradient
-                    colors={sex === 'male' ? theme.gradients.primary : theme.gradients.card}
-                    style={[
-                      styles.sexButtonGradient, 
-                      { 
-                        borderColor: sex === 'male' ? theme.primary : theme.cardBorder,
-                        borderWidth: 1
-                      }
-                    ]}
-                  >
-                    <Text style={styles.sexIcon}>♂️</Text>
-                    <Text style={[
-                      styles.sexText,
-                      { color: sex === 'male' ? '#FFFFFF' : theme.textSecondary }
-                    ]}>
-                      Male
-                    </Text>
-                    {sex === 'male' && (
-                      <View style={styles.selectedBadge}>
-                        <Text style={styles.selectedBadgeText}>✓</Text>
-                      </View>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={[styles.sexButton, { shadowColor: theme.shadow }]}
-                  onPress={() => setSex('female')}
-                  activeOpacity={0.9}
-                >
-                  <LinearGradient
-                    colors={sex === 'female' ? theme.gradients.primary : theme.gradients.card}
-                    style={[
-                      styles.sexButtonGradient,
-                      { 
-                        borderColor: sex === 'female' ? theme.primary : theme.cardBorder,
-                        borderWidth: 1
-                      }
-                    ]}
-                  >
-                    <Text style={styles.sexIcon}>♀️</Text>
-                    <Text style={[
-                      styles.sexText,
-                      { color: sex === 'female' ? '#FFFFFF' : theme.textSecondary }
-                    ]}>
-                      Female
-                    </Text>
-                    {sex === 'female' && (
-                      <View style={styles.selectedBadge}>
-                        <Text style={styles.selectedBadgeText}>✓</Text>
-                      </View>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </StepContainer>
-          )}
-
-          {currentStep === 3 && (
-            <StepContainer
               title="How Old Are You?"
               subtitle="Share your age with us."
               theme={theme}
@@ -347,7 +271,7 @@ export default function UserInfo() {
             </StepContainer>
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 3 && (
             <StepContainer
               title="What's Your Height?"
               subtitle="How tall are you?"
@@ -457,7 +381,7 @@ export default function UserInfo() {
             </StepContainer>
           )}
 
-          {currentStep === 5 && (
+          {currentStep === 4 && (
             <StepContainer
               title="What's Your Weight?"
               subtitle="Share your weight with us."

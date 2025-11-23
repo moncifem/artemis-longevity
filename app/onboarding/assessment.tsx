@@ -1,8 +1,25 @@
 import {
+  evaluateGaitSpeedPerformance,
+  getGaitSpeedReferenceValues
+} from '@/constants/gait-speed-norms';
+import {
   calculateGripStrengthPercentile,
   getGripStrengthPerformanceLevel,
   getGripStrengthReferenceValues
 } from '@/constants/grip-strength-norms';
+import {
+  SARC_F_QUESTIONS,
+  calculateSarcFScore,
+  interpretSarcFScore
+} from '@/constants/sarc-f-questionnaire';
+import {
+  evaluateSingleLegStancePerformance,
+  getSingleLegStanceReferenceValues
+} from '@/constants/single-leg-stance-norms';
+import {
+  evaluateSitToStandPerformance,
+  getSitToStandReferenceValues
+} from '@/constants/sit-to-stand-norms';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,7 +27,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Alert, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -18,35 +35,50 @@ const assessmentTests = [
   {
     id: 'gripStrength',
     title: 'Grip Strength Test',
-    description: 'Using a handgrip dynamometer (or estimate), how many kilograms can you hold at 90° arm angle?',
+    description: 'Using a handgrip dynamometer (or estimate), how many kilograms can you squeeze? Stand with your arm at 90°.',
     icon: '🤝',
     inputType: 'number' as const,
     unit: 'kg',
-    placeholder: 'Enter kg (e.g., 45)',
+    placeholder: 'Enter kg (e.g., 30)',
+    clinicalNote: 'Predicts mortality and functional decline (UK Biobank: 500,000 participants)',
   },
   {
-    id: 'endurance',
-    title: 'Endurance Test',
-    description: 'How long does it take you to run/walk 2km?',
-    icon: '🏃',
-    options: ['20+ min', '15-20 min', '12-15 min', '10-12 min', '<10 min'],
-    unit: 'minutes',
+    id: 'sitToStand',
+    title: 'Five-Times Sit-to-Stand',
+    description: 'Sit in a chair, then stand up and sit down 5 times as quickly as you can. How many seconds did it take?',
+    icon: '💺',
+    inputType: 'number' as const,
+    unit: 'seconds',
+    placeholder: 'Enter seconds (e.g., 12)',
+    clinicalNote: 'Predicts frailty, falls, and sarcopenia (Validated: 45,470 adults)',
   },
   {
-    id: 'flexibility',
-    title: 'Flexibility Test',
-    description: 'Standing with straight legs, how far can you reach?',
-    icon: '🤸',
-    options: ['Above knees', 'Touch knees', 'Touch ankles', 'Touch toes', 'Palms flat on floor'],
-    unit: 'reach',
+    id: 'gaitSpeed',
+    title: '4-Metre Gait Speed',
+    description: 'Walk 4 meters (13 feet) at your normal pace. How many seconds did it take?',
+    icon: '🚶‍♀️',
+    inputType: 'number' as const,
+    unit: 'seconds',
+    placeholder: 'Enter seconds (e.g., 3.5)',
+    clinicalNote: 'The "6th Vital Sign" - Predicts mortality and hospitalization (10,000+ adults)',
   },
   {
-    id: 'cardio',
-    title: 'Cardiovascular Test',
-    description: 'What is your typical resting heart rate? (Check in the morning)',
-    icon: '❤️',
-    options: ['90+ bpm', '80-90 bpm', '70-80 bpm', '65-70 bpm', '<65 bpm'],
-    unit: 'bpm',
+    id: 'singleLegStance',
+    title: 'Single-Leg Balance',
+    description: 'Stand on one leg (eyes open) for as long as you can. Stop at 60 seconds. How long did you balance?',
+    icon: '🦩',
+    inputType: 'number' as const,
+    unit: 'seconds',
+    placeholder: 'Enter seconds (e.g., 25)',
+    clinicalNote: 'Predicts fall risk and mortality (Validated: 2,000-5,000+ adults)',
+  },
+  {
+    id: 'sarcF',
+    title: 'SARC-F Questionnaire',
+    description: 'Answer 5 questions about your functional abilities to screen for sarcopenia risk.',
+    icon: '📋',
+    questionnaire: SARC_F_QUESTIONS,
+    clinicalNote: 'International sarcopenia screening tool (Validated: 10,000+ older adults)',
   },
 ];
 
@@ -59,40 +91,18 @@ export default function Assessment() {
   const [inputValue, setInputValue] = useState('');
   const [userProfile, setUserProfile] = useState<any>(null);
   const [ouraDataLoaded, setOuraDataLoaded] = useState(false);
+  const [sarcFAnswers, setSarcFAnswers] = useState<Record<string, number>>({});
+  const [currentSarcFQuestion, setCurrentSarcFQuestion] = useState(0);
 
-  // Load user profile and Oura data on mount
+  // Load user profile on mount
   useEffect(() => {
-    const loadProfileAndOuraData = async () => {
+    const loadProfile = async () => {
       const userProfileStr = await AsyncStorage.getItem('userProfile');
       if (userProfileStr) {
         setUserProfile(JSON.parse(userProfileStr));
       }
-
-      // Check if Oura is connected and pre-fill assessment
-      const ouraToken = await AsyncStorage.getItem('ouraApiToken');
-      if (ouraToken && !ouraDataLoaded) {
-        try {
-          const { preFillAssessmentFromOura } = await import('@/services/oura-data-mapper');
-          const ouraAssessment = await preFillAssessmentFromOura(7);
-          
-          if (ouraAssessment) {
-            setAnswers({
-              endurance: ouraAssessment.endurance,
-              cardio: ouraAssessment.cardio,
-            });
-            setOuraDataLoaded(true);
-            Alert.alert(
-              'Oura Data Loaded! 💍',
-              'Your endurance and cardio assessments have been pre-filled from your Oura Ring data.',
-              [{ text: 'Great!' }]
-            );
-          }
-        } catch (error) {
-          console.log('Could not load Oura data:', error);
-        }
-      }
     };
-    loadProfileAndOuraData();
+    loadProfile();
   }, []);
 
   const currentTestData = assessmentTests[currentTest];
@@ -125,13 +135,41 @@ export default function Assessment() {
       return;
     }
 
-    // Validate grip strength range (reasonable values)
+    // Validate ranges for each test
     if (currentTestData.id === 'gripStrength' && (numValue < 5 || numValue > 150)) {
       Alert.alert('Invalid Range', 'Please enter a realistic grip strength value (5-150 kg)');
       return;
     }
+    if (currentTestData.id === 'sitToStand' && (numValue < 3 || numValue > 120)) {
+      Alert.alert('Invalid Range', 'Please enter a realistic time (3-120 seconds)');
+      return;
+    }
+    if (currentTestData.id === 'gaitSpeed' && (numValue < 1 || numValue > 30)) {
+      Alert.alert('Invalid Range', 'Please enter a realistic time (1-30 seconds)');
+      return;
+    }
+    if (currentTestData.id === 'singleLegStance' && (numValue < 0 || numValue > 60)) {
+      Alert.alert('Invalid Range', 'Please enter a time between 0-60 seconds');
+      return;
+    }
 
     handleAnswer(inputValue);
+  };
+
+  const handleSarcFAnswer = (score: number) => {
+    const currentQuestion = SARC_F_QUESTIONS[currentSarcFQuestion];
+    const newSarcFAnswers = { ...sarcFAnswers, [currentQuestion.id]: score };
+    setSarcFAnswers(newSarcFAnswers);
+
+    if (currentSarcFQuestion < SARC_F_QUESTIONS.length - 1) {
+      setTimeout(() => {
+        setCurrentSarcFQuestion(currentSarcFQuestion + 1);
+      }, 300);
+    } else {
+      // SARC-F complete, move to next test or finish
+      const totalScore = calculateSarcFScore(newSarcFAnswers);
+      handleAnswer(totalScore.toString());
+    }
   };
 
   const getAgeGroup = (age: number): string => {
@@ -147,13 +185,14 @@ export default function Assessment() {
     const userProfile = userProfileStr ? JSON.parse(userProfileStr) : {};
     
     const actualAge = userProfile.age || 30;
-    const sex = userProfile.sex || 'male';
+    const sex = userProfile.sex || 'female'; // Default to female as app is for women
     const ageGroup = getAgeGroup(actualAge);
     
-    // Calculate fitness score using age-adjusted benchmarks
+    // Calculate functional fitness score using clinical assessments
     let totalScore = 0;
     let maxScore = 0;
     const detailedScores: Record<string, number | string> = {};
+    const clinicalAssessments: Record<string, any> = {};
 
     assessmentTests.forEach((test) => {
       const answer = testAnswers[test.id];
@@ -166,13 +205,84 @@ export default function Assessment() {
           const performance = getGripStrengthPerformanceLevel(percentile);
           testScore = performance.score;
           detailedScores[test.id] = testScore;
+          detailedScores[`${test.id}_value`] = gripStrength;
           detailedScores[`${test.id}_percentile`] = Math.round(percentile);
           detailedScores[`${test.id}_level`] = performance.level;
+          clinicalAssessments.gripStrength = {
+            value: gripStrength,
+            percentile,
+            level: performance.level,
+            description: performance.description,
+          };
         }
-      } else if ('options' in test && test.options) {
-        const answerIndex = test.options.indexOf(answer);
-        testScore = answerIndex;
-        detailedScores[test.id] = testScore;
+      } else if (test.id === 'sitToStand') {
+        const time = parseFloat(answer);
+        if (!isNaN(time)) {
+          const performance = evaluateSitToStandPerformance(time, sex, actualAge);
+          testScore = performance.score;
+          detailedScores[test.id] = testScore;
+          detailedScores[`${test.id}_value`] = time;
+          detailedScores[`${test.id}_level`] = performance.level;
+          detailedScores[`${test.id}_frailtyRisk`] = performance.frailtyRisk;
+          clinicalAssessments.sitToStand = {
+            value: time,
+            level: performance.level,
+            frailtyRisk: performance.frailtyRisk,
+            description: performance.description,
+          };
+        }
+      } else if (test.id === 'gaitSpeed') {
+        const time = parseFloat(answer);
+        if (!isNaN(time)) {
+          const performance = evaluateGaitSpeedPerformance(time, sex, actualAge, true);
+          testScore = performance.score;
+          detailedScores[test.id] = testScore;
+          detailedScores[`${test.id}_time`] = time;
+          detailedScores[`${test.id}_speed`] = performance.speedMs.toFixed(2);
+          detailedScores[`${test.id}_level`] = performance.level;
+          detailedScores[`${test.id}_mortalityRisk`] = performance.mortalityRisk;
+          clinicalAssessments.gaitSpeed = {
+            time,
+            speedMs: performance.speedMs,
+            level: performance.level,
+            mortalityRisk: performance.mortalityRisk,
+            description: performance.description,
+          };
+        }
+      } else if (test.id === 'singleLegStance') {
+        const time = parseFloat(answer);
+        if (!isNaN(time)) {
+          const performance = evaluateSingleLegStancePerformance(time, sex, actualAge);
+          testScore = performance.score;
+          detailedScores[test.id] = testScore;
+          detailedScores[`${test.id}_value`] = time;
+          detailedScores[`${test.id}_level`] = performance.level;
+          detailedScores[`${test.id}_fallRisk`] = performance.fallRisk;
+          clinicalAssessments.singleLegStance = {
+            value: time,
+            level: performance.level,
+            fallRisk: performance.fallRisk,
+            description: performance.description,
+            mortalityNote: performance.mortalityNote,
+          };
+        }
+      } else if (test.id === 'sarcF') {
+        const totalSarcF = parseFloat(answer);
+        if (!isNaN(totalSarcF)) {
+          const interpretation = interpretSarcFScore(totalSarcF);
+          testScore = interpretation.performanceScore;
+          detailedScores[test.id] = testScore;
+          detailedScores[`${test.id}_score`] = totalSarcF;
+          detailedScores[`${test.id}_level`] = interpretation.level;
+          detailedScores[`${test.id}_sarcopeniaRisk`] = interpretation.sarcopeniaRisk;
+          clinicalAssessments.sarcF = {
+            score: totalSarcF,
+            level: interpretation.level,
+            sarcopeniaRisk: interpretation.sarcopeniaRisk,
+            recommendation: interpretation.recommendation,
+            componentScores: sarcFAnswers,
+          };
+        }
       }
       
       totalScore += testScore;
@@ -181,24 +291,28 @@ export default function Assessment() {
 
     const performancePercentage = (totalScore / maxScore) * 100;
     
+    // More nuanced fitness age calculation based on functional fitness
     let fitnessAgeAdjustment = 0;
     let performanceLevel = 'Average';
     
-    if (performancePercentage >= 80) {
-      fitnessAgeAdjustment = -10;
+    if (performancePercentage >= 85) {
+      fitnessAgeAdjustment = -12;
+      performanceLevel = 'Exceptional';
+    } else if (performancePercentage >= 70) {
+      fitnessAgeAdjustment = -7;
       performanceLevel = 'Excellent';
-    } else if (performancePercentage >= 60) {
-      fitnessAgeAdjustment = -5;
+    } else if (performancePercentage >= 55) {
+      fitnessAgeAdjustment = -3;
       performanceLevel = 'Good';
     } else if (performancePercentage >= 40) {
       fitnessAgeAdjustment = 0;
       performanceLevel = 'Average';
-    } else if (performancePercentage >= 20) {
-      fitnessAgeAdjustment = 5;
+    } else if (performancePercentage >= 25) {
+      fitnessAgeAdjustment = 4;
       performanceLevel = 'Below Average';
     } else {
-      fitnessAgeAdjustment = 10;
-      performanceLevel = 'Needs Improvement';
+      fitnessAgeAdjustment = 8;
+      performanceLevel = 'Needs Attention';
     }
 
     const fitnessAge = Math.max(18, actualAge + fitnessAgeAdjustment);
@@ -206,6 +320,7 @@ export default function Assessment() {
     const assessmentResults = {
       tests: testAnswers,
       detailedScores,
+      clinicalAssessments,
       totalScore,
       maxScore,
       performancePercentage: Math.round(performancePercentage),
@@ -215,6 +330,8 @@ export default function Assessment() {
       ageGroup,
       fitnessAgeAdjustment,
       assessmentDate: new Date().toISOString(),
+      assessmentType: 'functional-fitness',
+      validatedTests: ['gripStrength', 'sitToStand', 'gaitSpeed', 'singleLegStance', 'sarcF'],
     };
 
     await AsyncStorage.setItem('assessmentResults', JSON.stringify(assessmentResults));
@@ -287,27 +404,78 @@ export default function Assessment() {
             </View>
             <Text style={[styles.testTitle, { color: theme.text }]}>{currentTestData.title}</Text>
             <Text style={[styles.testDescription, { color: theme.textSecondary }]}>{currentTestData.description}</Text>
+            
+            {/* Show instructional image for grip strength test */}
+            {currentTestData.id === 'gripStrength' && (
+              <Image 
+                source={require('@/assets/images/grip_test.jpg')}
+                style={styles.instructionalImage}
+                resizeMode="contain"
+              />
+            )}
           </LinearGradient>
         </View>
 
-        {'inputType' in currentTestData ? (
+        {'questionnaire' in currentTestData && currentTestData.questionnaire ? (
+          // SARC-F Questionnaire
+          <>
+            <Text style={[styles.selectText, { color: theme.text }]}>
+              Question {currentSarcFQuestion + 1} of {SARC_F_QUESTIONS.length}
+            </Text>
+            <View style={[styles.questionnaireContainer, { shadowColor: theme.shadow }]}>
+              <LinearGradient
+                colors={theme.gradients.card}
+                style={[styles.questionnaireCard, { borderColor: theme.cardBorder, borderWidth: 1 }]}
+              >
+                <Text style={[styles.questionnaireText, { color: theme.text }]}>
+                  {SARC_F_QUESTIONS[currentSarcFQuestion].question}
+                </Text>
+              </LinearGradient>
+            </View>
+            <View style={styles.optionsContainer}>
+              {SARC_F_QUESTIONS[currentSarcFQuestion].options.map((option, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.optionButton, { shadowColor: theme.shadow }]}
+                  onPress={() => handleSarcFAnswer(option.score)}
+                  activeOpacity={0.9}
+                >
+                  <LinearGradient
+                    colors={theme.gradients.card}
+                    style={[styles.optionGradient, { borderColor: theme.cardBorder, borderWidth: 1 }]}
+                  >
+                    <View style={[styles.optionNumber, { backgroundColor: theme.input }]}>
+                      <Text style={[styles.optionNumberText, { color: theme.primary }]}>{option.score}</Text>
+                    </View>
+                    <Text style={[styles.optionText, { color: theme.text }]}>{option.text}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        ) : 'inputType' in currentTestData ? (
           // Input field for numeric tests
           <>
             <Text style={[styles.selectText, { color: theme.text }]}>Enter your measurement:</Text>
-            <View style={[styles.inputContainer, { shadowColor: theme.shadow }]}>
+            <View style={[styles.inputWrapper, { shadowColor: theme.shadow }]}>
               <LinearGradient
                 colors={theme.gradients.card}
-                style={[styles.inputGradient, { borderColor: theme.primary, borderWidth: 1 }]}
+                style={[styles.inputCard, { borderColor: theme.cardBorder, borderWidth: 1 }]}
               >
-                <TextInput
-                  style={[styles.input, { color: theme.text }]}
-                  value={inputValue}
-                  onChangeText={setInputValue}
-                  placeholder={currentTestData.placeholder || 'Enter value'}
-                  keyboardType="decimal-pad"
-                  placeholderTextColor={theme.textSecondary}
-                />
-                <Text style={[styles.inputUnit, { color: theme.primary }]}>{currentTestData.unit}</Text>
+                <View style={styles.inputRow}>
+                  <TextInput
+                    style={[styles.input, { color: theme.text }]}
+                    value={inputValue}
+                    onChangeText={setInputValue}
+                    placeholder={currentTestData.placeholder || 'Enter value'}
+                    keyboardType="decimal-pad"
+                    placeholderTextColor={theme.textSecondary}
+                    autoFocus
+                  />
+                  <View style={[styles.unitBadge, { backgroundColor: theme.input }]}>
+                    <Text style={[styles.unitText, { color: theme.primary }]}>{currentTestData.unit}</Text>
+                  </View>
+                </View>
               </LinearGradient>
             </View>
             
@@ -328,11 +496,28 @@ export default function Assessment() {
               </LinearGradient>
             </TouchableOpacity>
             
-            {/* Show reference values */}
-            {currentTestData.id === 'gripStrength' && userProfile && (() => {
-              const sex = userProfile.sex || 'male';
+            {/* Show reference values for each test */}
+            {userProfile && (() => {
+              const sex = userProfile.sex || 'female';
               const age = userProfile.age || 30;
-              const refs = getGripStrengthReferenceValues(sex, age);
+              let refs: any = null;
+              let refType = '';
+              
+              if (currentTestData.id === 'gripStrength') {
+                refs = getGripStrengthReferenceValues(sex, age);
+                refType = 'higher';
+              } else if (currentTestData.id === 'sitToStand') {
+                refs = getSitToStandReferenceValues(sex, age);
+                refType = 'lower';
+              } else if (currentTestData.id === 'gaitSpeed') {
+                refs = getGaitSpeedReferenceValues(sex, age);
+                refType = 'speed';
+              } else if (currentTestData.id === 'singleLegStance') {
+                refs = getSingleLegStanceReferenceValues(sex, age);
+                refType = 'higher';
+              }
+              
+              if (!refs) return null;
               
               return (
                 <View style={[styles.referenceContainer, { shadowColor: theme.shadow }]}>
@@ -346,18 +531,26 @@ export default function Assessment() {
                     <View style={styles.referenceGrid}>
                       <View style={[styles.referenceItem, { backgroundColor: theme.input }]}>
                         <Text style={styles.referenceEmoji}>⭐</Text>
-                        <Text style={[styles.referenceLabel, { color: theme.textSecondary }]}>Below Average</Text>
-                        <Text style={[styles.referenceValue, { color: theme.primary }]}>&lt;{refs.poor.toFixed(1)} kg</Text>
+                        <Text style={[styles.referenceLabel, { color: theme.textSecondary }]}>Poor</Text>
+                        <Text style={[styles.referenceValue, { color: theme.primary }]}>
+                          {refType === 'lower' ? '>' : refType === 'speed' ? '<' : '<'}
+                          {refType === 'speed' ? (4 / refs.poor).toFixed(1) + 's' : refs.poor.toFixed(1) + (currentTestData.unit || '')}
+                        </Text>
                       </View>
                       <View style={[styles.referenceItem, { backgroundColor: theme.input }]}>
                         <Text style={styles.referenceEmoji}>⭐⭐</Text>
                         <Text style={[styles.referenceLabel, { color: theme.textSecondary }]}>Average</Text>
-                        <Text style={[styles.referenceValue, { color: theme.primary }]}>~{refs.average.toFixed(1)} kg</Text>
+                        <Text style={[styles.referenceValue, { color: theme.primary }]}>
+                          ~{refType === 'speed' ? (4 / refs.average).toFixed(1) + 's' : refs.average.toFixed(1) + (currentTestData.unit || '')}
+                        </Text>
                       </View>
                       <View style={[styles.referenceItem, { backgroundColor: theme.input }]}>
                         <Text style={styles.referenceEmoji}>⭐⭐⭐</Text>
                         <Text style={[styles.referenceLabel, { color: theme.textSecondary }]}>Excellent</Text>
-                        <Text style={[styles.referenceValue, { color: theme.primary }]}>&gt;{refs.excellent.toFixed(1)} kg</Text>
+                        <Text style={[styles.referenceValue, { color: theme.primary }]}>
+                          {refType === 'lower' ? '<' : refType === 'speed' ? '<' : '>'}
+                          {refType === 'speed' ? (4 / refs.excellent).toFixed(1) + 's' : refs.excellent.toFixed(1) + (currentTestData.unit || '')}
+                        </Text>
                       </View>
                     </View>
                   </LinearGradient>
@@ -365,51 +558,7 @@ export default function Assessment() {
               );
             })()}
           </>
-        ) : (
-          // Multiple choice options
-          <>
-            <Text style={[styles.selectText, { color: theme.text }]}>Select your answer:</Text>
-            <View style={styles.optionsContainer}>
-              {'options' in currentTestData && currentTestData.options?.map((option, index) => (
-                <TouchableOpacity
-                  key={option}
-                  style={[styles.optionButton, { shadowColor: theme.shadow }]}
-                  onPress={() => handleAnswer(option)}
-                  activeOpacity={0.9}
-                >
-                  <LinearGradient
-                    colors={answers[currentTestData.id] === option ? theme.gradients.primary : theme.gradients.card}
-                    style={[
-                      styles.optionGradient,
-                      { borderColor: answers[currentTestData.id] === option ? theme.primary : theme.cardBorder, borderWidth: 1 }
-                    ]}
-                  >
-                    <View style={[
-                      styles.optionNumber,
-                      { backgroundColor: answers[currentTestData.id] === option ? 'rgba(255,255,255,0.2)' : theme.input }
-                    ]}>
-                      <Text style={[
-                        styles.optionNumberText,
-                        { color: answers[currentTestData.id] === option ? '#FFFFFF' : theme.primary }
-                      ]}>
-                        {index + 1}
-                      </Text>
-                    </View>
-                    <Text style={[
-                      styles.optionText,
-                      { color: answers[currentTestData.id] === option ? '#FFFFFF' : theme.text }
-                    ]}>
-                      {option}
-                    </Text>
-                    {answers[currentTestData.id] === option && (
-                      <Text style={styles.optionCheck}>✓</Text>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </>
-        )}
+        ) : null}
       </ScrollView>
 
       <View style={[styles.footer, { borderTopColor: theme.cardBorder, backgroundColor: theme.glass }]}>
@@ -527,6 +676,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
+  instructionalImage: {
+    width: '100%',
+    height: 200,
+    marginTop: 24,
+    borderRadius: 16,
+  },
   selectText: {
     fontSize: 20,
     fontWeight: '700',
@@ -570,31 +725,42 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '800',
   },
-  inputContainer: {
+  inputWrapper: {
     marginBottom: 24,
-    borderRadius: 24,
+    borderRadius: 18,
     overflow: 'hidden',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 4,
   },
-  inputGradient: {
+  inputCard: {
+    padding: 14,
+    borderRadius: 18,
+  },
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 4,
+    gap: 10,
   },
   input: {
     flex: 1,
-    fontSize: 24,
-    fontWeight: '700',
-    paddingVertical: 20,
-  },
-  inputUnit: {
     fontSize: 18,
     fontWeight: '700',
-    marginLeft: 12,
+    paddingVertical: 10,
+    textAlign: 'center',
+  },
+  unitBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 9,
+    minWidth: 55,
+    alignItems: 'center',
+  },
+  unitText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   submitButton: {
     borderRadius: 28,
@@ -675,5 +841,23 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  questionnaireContainer: {
+    marginBottom: 24,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  questionnaireCard: {
+    padding: 24,
+  },
+  questionnaireText: {
+    fontSize: 18,
+    fontWeight: '600',
+    lineHeight: 26,
+    textAlign: 'center',
   },
 });
