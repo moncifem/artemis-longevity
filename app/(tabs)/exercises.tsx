@@ -1,5 +1,7 @@
+import type { Achievement } from '@/constants/achievements';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { checkAndUnlockAchievements } from '@/services/achievement-service';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -44,6 +46,7 @@ interface UserStats {
   level: number;
   currentXP: number;
   nextLevelXP: number;
+  totalXPEarned: number;
   streak: number;
   totalWorkouts: number;
   lastWorkoutDate: string | null;
@@ -227,6 +230,7 @@ export default function ExercisesScreen() {
     level: 1,
     currentXP: 0,
     nextLevelXP: LEVEL_THRESHOLDS[1],
+    totalXPEarned: 0,
     streak: 0,
     totalWorkouts: 0,
     lastWorkoutDate: null,
@@ -235,6 +239,8 @@ export default function ExercisesScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [educationModalVisible, setEducationModalVisible] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [newAchievements, setNewAchievements] = useState<Achievement[]>([]);
+  const [achievementModalVisible, setAchievementModalVisible] = useState(false);
 
   const xpBarAnim = useRef(new Animated.Value(0)).current;
 
@@ -281,12 +287,18 @@ export default function ExercisesScreen() {
       setWorkoutHistory(history);
 
       if (statsStr) {
-        setUserStats(JSON.parse(statsStr));
+        const loadedStats = JSON.parse(statsStr);
+        // Ensure totalXPEarned exists for backward compatibility
+        if (!loadedStats.totalXPEarned) {
+          loadedStats.totalXPEarned = 0;
+        }
+        setUserStats(loadedStats);
       } else {
         const initialStats = {
           level: 1,
           currentXP: 0,
           nextLevelXP: LEVEL_THRESHOLDS[1],
+          totalXPEarned: 0,
           streak: 0,
           totalWorkouts: 0,
           lastWorkoutDate: null,
@@ -383,11 +395,14 @@ export default function ExercisesScreen() {
   };
 
   const updateStats = async (xpGained: number) => {
-    let { level, currentXP, nextLevelXP, streak, lastWorkoutDate, totalWorkouts } = userStats;
+    let { level, currentXP, nextLevelXP, totalXPEarned, streak, lastWorkoutDate, totalWorkouts } = userStats;
     const today = new Date().toISOString().split('T')[0];
     const lastDate = lastWorkoutDate ? lastWorkoutDate.split('T')[0] : null;
 
+    // Track total XP earned
+    totalXPEarned += xpGained;
     currentXP += xpGained;
+    
     if (currentXP >= nextLevelXP) {
       level++;
       currentXP = currentXP - nextLevelXP;
@@ -417,6 +432,7 @@ export default function ExercisesScreen() {
       level,
       currentXP,
       nextLevelXP,
+      totalXPEarned,
       streak,
       totalWorkouts,
       lastWorkoutDate: new Date().toISOString(),
@@ -424,6 +440,20 @@ export default function ExercisesScreen() {
 
     setUserStats(newStats);
     await AsyncStorage.setItem('userStats', JSON.stringify(newStats));
+    
+    // Check for new achievements
+    const unlockedAchievements = await checkAndUnlockAchievements({
+      level: newStats.level,
+      totalWorkouts: newStats.totalWorkouts,
+      streak: newStats.streak,
+      totalXPEarned: newStats.totalXPEarned,
+    });
+    
+    if (unlockedAchievements.length > 0) {
+      setNewAchievements(unlockedAchievements);
+      setAchievementModalVisible(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
   };
 
   const getLevelTitle = (lvl: number) => {
@@ -812,6 +842,55 @@ export default function ExercisesScreen() {
             </View>
           </ScrollView>
         </LinearGradient>
+      </Modal>
+
+      {/* Achievement Unlock Modal */}
+      <Modal
+        visible={achievementModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setAchievementModalVisible(false)}
+      >
+        <View style={styles.achievementModalOverlay}>
+          <LinearGradient
+            colors={theme.gradients.card}
+            style={[styles.achievementModalContent, { borderColor: theme.cardBorder, borderWidth: 1 }]}
+          >
+            {newAchievements.length > 0 && (
+              <>
+                <Text style={[styles.achievementModalTitle, { color: theme.text }]}>
+                  🎉 Achievement{newAchievements.length > 1 ? 's' : ''} Unlocked!
+                </Text>
+                
+                <ScrollView style={styles.achievementsList} showsVerticalScrollIndicator={false}>
+                  {newAchievements.map((achievement, index) => (
+                    <LinearGradient
+                      key={achievement.id}
+                      colors={achievement.gradient}
+                      style={styles.achievementUnlockCard}
+                    >
+                      <Text style={styles.achievementUnlockIcon}>{achievement.icon}</Text>
+                      <Text style={styles.achievementUnlockTitle}>{achievement.title}</Text>
+                      <Text style={styles.achievementUnlockDescription}>{achievement.description}</Text>
+                    </LinearGradient>
+                  ))}
+                </ScrollView>
+
+                <TouchableOpacity
+                  style={[styles.achievementModalButton, { shadowColor: theme.shadow }]}
+                  onPress={() => setAchievementModalVisible(false)}
+                >
+                  <LinearGradient
+                    colors={theme.gradients.button}
+                    style={styles.achievementModalButtonGradient}
+                  >
+                    <Text style={styles.achievementModalButtonText}>Awesome!</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </>
+            )}
+          </LinearGradient>
+        </View>
       </Modal>
     </View>
   );
@@ -1287,5 +1366,72 @@ const styles = StyleSheet.create({
   educationFooterText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+
+  // Achievement Unlock Modal
+  achievementModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  achievementModalContent: {
+    borderRadius: 24,
+    padding: 32,
+    maxHeight: '80%',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  achievementModalTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  achievementsList: {
+    maxHeight: 400,
+    marginBottom: 24,
+  },
+  achievementUnlockCard: {
+    padding: 24,
+    borderRadius: 20,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  achievementUnlockIcon: {
+    fontSize: 64,
+    marginBottom: 12,
+  },
+  achievementUnlockTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  achievementUnlockDescription: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  achievementModalButton: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  achievementModalButtonGradient: {
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  achievementModalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
 });

@@ -241,6 +241,40 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </LinearGradient>
 
+        {/* Achievements Section */}
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => router.push('/achievements' as any)}
+        >
+          <LinearGradient
+            colors={theme.gradients.primary}
+            style={[styles.achievementsCard, { shadowColor: theme.shadow }]}
+          >
+            <View style={styles.achievementsHeader}>
+              <View>
+                <Text style={styles.achievementsTitle}>🏆 Achievements</Text>
+                <Text style={styles.achievementsSubtitle}>Tap to view all badges</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+            </View>
+            
+            <View style={styles.achievementsBadges}>
+              <View style={styles.badge}>
+                <Text style={styles.badgeIcon}>🌱</Text>
+              </View>
+              <View style={styles.badge}>
+                <Text style={styles.badgeIcon}>🔥</Text>
+              </View>
+              <View style={styles.badge}>
+                <Text style={styles.badgeIcon}>⭐</Text>
+              </View>
+              <View style={[styles.badge, styles.badgeMore]}>
+                <Text style={styles.badgeMoreText}>+10</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+
         {/* Personal Information Card */}
         <LinearGradient
           colors={theme.gradients.card}
@@ -703,6 +737,58 @@ const styles = StyleSheet.create({
   reassessText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  achievementsCard: {
+    marginHorizontal: 20,
+    padding: 20,
+    borderRadius: 24,
+    marginBottom: 20,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  achievementsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  achievementsTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  achievementsSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '600',
+  },
+  achievementsBadges: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  badge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  badgeIcon: {
+    fontSize: 28,
+  },
+  badgeMore: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  badgeMoreText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   sectionTitle: {
     fontSize: 20,
