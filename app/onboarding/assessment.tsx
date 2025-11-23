@@ -1,8 +1,4 @@
 import {
-  evaluateGaitSpeedPerformance,
-  getGaitSpeedReferenceValues
-} from '@/constants/gait-speed-norms';
-import {
   calculateGripStrengthPercentile,
   getGripStrengthPerformanceLevel,
   getGripStrengthReferenceValues
@@ -21,6 +17,10 @@ import {
   getSitToStandReferenceValues
 } from '@/constants/sit-to-stand-norms';
 import { Colors } from '@/constants/theme';
+import {
+  evaluateVO2MaxPerformance,
+  getVO2MaxAgeGroup
+} from '@/constants/vo2max-norms';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -53,14 +53,14 @@ const assessmentTests = [
     clinicalNote: 'Predicts frailty, falls, and sarcopenia (Validated: 45,470 adults)',
   },
   {
-    id: 'gaitSpeed',
-    title: '4-Metre Gait Speed',
-    description: 'Walk 4 meters (13 feet) at your normal pace. How many seconds did it take?',
+    id: 'vo2max',
+    title: '1-Mile Walk Test',
+    description: 'Walk 1 mile at a brisk pace on a track or treadmill. Enter the time it took in minutes (e.g., 15.5 for 15 minutes 30 seconds).',
     icon: '🚶‍♀️',
     inputType: 'number' as const,
-    unit: 'seconds',
-    placeholder: 'Enter seconds (e.g., 3.5)',
-    clinicalNote: 'The "6th Vital Sign" - Predicts mortality and hospitalization (10,000+ adults)',
+    unit: 'minutes',
+    placeholder: 'Enter minutes (e.g., 15.5)',
+    clinicalNote: 'Measures oxygen processing capacity - a key indicator of cardiovascular fitness and longevity',
   },
   {
     id: 'singleLegStance',
@@ -144,8 +144,8 @@ export default function Assessment() {
       Alert.alert('Invalid Range', 'Please enter a realistic time (3-120 seconds)');
       return;
     }
-    if (currentTestData.id === 'gaitSpeed' && (numValue < 1 || numValue > 30)) {
-      Alert.alert('Invalid Range', 'Please enter a realistic time (1-30 seconds)');
+    if (currentTestData.id === 'vo2max' && (numValue < 5 || numValue > 40)) {
+      Alert.alert('Invalid Range', 'Please enter a realistic time (5-40 minutes)');
       return;
     }
     if (currentTestData.id === 'singleLegStance' && (numValue < 0 || numValue > 60)) {
@@ -231,21 +231,25 @@ export default function Assessment() {
             description: performance.description,
           };
         }
-      } else if (test.id === 'gaitSpeed') {
-        const time = parseFloat(answer);
-        if (!isNaN(time)) {
-          const performance = evaluateGaitSpeedPerformance(time, sex, actualAge, true);
+      } else if (test.id === 'vo2max') {
+        const walkTime = parseFloat(answer);
+        if (!isNaN(walkTime)) {
+          // Estimate VO2Max from walk time (simplified estimation without heart rate)
+          // Using a simplified formula: longer time = lower VO2Max
+          // Average 1-mile walk for good fitness: 12-15 min, poor: 18-22 min
+          const estimatedVO2Max = Math.max(15, 60 - (walkTime * 2));
+          const performance = evaluateVO2MaxPerformance(estimatedVO2Max, sex, actualAge);
           testScore = performance.score;
           detailedScores[test.id] = testScore;
-          detailedScores[`${test.id}_time`] = time;
-          detailedScores[`${test.id}_speed`] = performance.speedMs.toFixed(2);
+          detailedScores[`${test.id}_walkTime`] = walkTime;
+          detailedScores[`${test.id}_estimatedVO2Max`] = estimatedVO2Max.toFixed(1);
           detailedScores[`${test.id}_level`] = performance.level;
-          detailedScores[`${test.id}_mortalityRisk`] = performance.mortalityRisk;
-          clinicalAssessments.gaitSpeed = {
-            time,
-            speedMs: performance.speedMs,
+          detailedScores[`${test.id}_cardiovascularRisk`] = performance.cardiovascularRisk;
+          clinicalAssessments.vo2max = {
+            walkTime,
+            estimatedVO2Max,
             level: performance.level,
-            mortalityRisk: performance.mortalityRisk,
+            cardiovascularRisk: performance.cardiovascularRisk,
             description: performance.description,
           };
         }
@@ -331,7 +335,7 @@ export default function Assessment() {
       fitnessAgeAdjustment,
       assessmentDate: new Date().toISOString(),
       assessmentType: 'functional-fitness',
-      validatedTests: ['gripStrength', 'sitToStand', 'gaitSpeed', 'singleLegStance', 'sarcF'],
+      validatedTests: ['gripStrength', 'sitToStand', 'vo2max', 'singleLegStance', 'sarcF'],
     };
 
     await AsyncStorage.setItem('assessmentResults', JSON.stringify(assessmentResults));
@@ -416,6 +420,13 @@ export default function Assessment() {
             {currentTestData.id === 'sitToStand' && (
               <Image 
                 source={require('@/assets/images/sit_to_stand.jpg')}
+                style={styles.instructionalImage}
+                resizeMode="contain"
+              />
+            )}
+            {currentTestData.id === 'vo2max' && (
+              <Image 
+                source={require('@/assets/images/1_mile_test.jpg')}
                 style={styles.instructionalImage}
                 resizeMode="contain"
               />
@@ -516,9 +527,16 @@ export default function Assessment() {
               } else if (currentTestData.id === 'sitToStand') {
                 refs = getSitToStandReferenceValues(sex, age);
                 refType = 'lower';
-              } else if (currentTestData.id === 'gaitSpeed') {
-                refs = getGaitSpeedReferenceValues(sex, age);
-                refType = 'speed';
+              } else if (currentTestData.id === 'vo2max') {
+                // For VO2Max walk test, show time references (inverse of VO2Max)
+                // Shorter time = better fitness
+                refs = { 
+                  excellent: 12, 
+                  average: 16, 
+                  poor: 20,
+                  ageGroup: getVO2MaxAgeGroup(age)
+                };
+                refType = 'lower';
               } else if (currentTestData.id === 'singleLegStance') {
                 refs = getSingleLegStanceReferenceValues(sex, age);
                 refType = 'higher';
