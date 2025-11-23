@@ -1,10 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState, useEffect } from 'react';
+import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { initHealthKit, getAllHealthData } from '@/services/apple-health-api';
+import { initHealthKit, getAllHealthData, isHealthKitAvailable } from '@/services/apple-health-api';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -15,34 +15,81 @@ export default function AppleHealthConnect() {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'dark'];
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(true);
+
+  useEffect(() => {
+    checkAvailability();
+  }, []);
+
+  const checkAvailability = async () => {
+    // Check platform
+    if (Platform.OS !== 'ios') {
+      setIsAvailable(false);
+      Alert.alert(
+        'Not Available',
+        'Apple Health is only available on iOS devices.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+      return;
+    }
+
+    // Check if HealthKit is available
+    const available = await isHealthKitAvailable();
+    setIsAvailable(available);
+    
+    if (!available) {
+      Alert.alert(
+        'HealthKit Not Available',
+        'Apple Health is not available on this device. This might be because:\n\n• You are using an iOS Simulator\n• HealthKit is not supported on this device\n• The app was not built with native modules\n\nPlease ensure you are using a native build (EAS Build) on a real iOS device.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    }
+  };
 
   const handleConnect = async () => {
     try {
       setIsConnecting(true);
 
-      // Initialize HealthKit
-      const initialized = await initHealthKit();
-      
-      if (!initialized) {
+      // Double check availability
+      if (!isAvailable) {
         Alert.alert(
-          'Permission Denied',
-          'Please enable Health permissions in Settings to use this feature.',
+          'Not Available',
+          'Apple Health is not available. Please use a native build on a real iOS device.',
           [{ text: 'OK' }]
         );
         setIsConnecting(false);
         return;
       }
 
+      // Initialize HealthKit
+      console.log('🔄 Initializing HealthKit...');
+      const initialized = await initHealthKit();
+      
+      if (!initialized) {
+        Alert.alert(
+          'Permission Required',
+          'Artemis needs permission to access your Apple Health data.\n\nTo grant access:\n1. Open Settings app\n2. Go to Health > Data Access & Devices\n3. Select Artemis\n4. Enable all requested permissions',
+          [{ text: 'OK' }]
+        );
+        setIsConnecting(false);
+        return;
+      }
+
+      console.log('✅ HealthKit initialized, fetching data...');
+
       // Test data fetch
       const healthData = await getAllHealthData();
       
       if (healthData) {
+        console.log('✅ Health data fetched successfully:', healthData);
+        
         // Save connection status
         await AsyncStorage.setItem('appleHealthConnected', 'true');
+        await AsyncStorage.setItem('healthDataSource', 'appleHealth');
         
         Alert.alert(
           'Success! 🎉',
-          'Your Apple Health is now connected to Artemis!',
+          'Your Apple Health is now connected to Artemis! We\'ll sync your activity, sleep, and heart rate data.',
           [
             {
               text: 'Continue',
@@ -51,11 +98,20 @@ export default function AppleHealthConnect() {
           ]
         );
       } else {
-        Alert.alert('Error', 'Could not fetch health data. Please try again.');
+        console.log('⚠️ No health data returned');
+        Alert.alert(
+          'Limited Data',
+          'We could connect to Apple Health but couldn\'t fetch data yet. This might be because:\n\n• You haven\'t granted all permissions\n• There\'s no recent health data available\n\nYou can try again later or check your Health app.',
+          [{ text: 'OK' }]
+        );
       }
     } catch (error) {
-      console.error('Error connecting Apple Health:', error);
-      Alert.alert('Error', 'Failed to connect to Apple Health. Please try again.');
+      console.error('❌ Error connecting Apple Health:', error);
+      Alert.alert(
+        'Connection Error',
+        `Failed to connect to Apple Health.\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease make sure:\n• You are using a native build (not Expo Go)\n• You are on a real iOS device\n• HealthKit permissions are enabled`,
+        [{ text: 'OK' }]
+      );
     } finally {
       setIsConnecting(false);
     }

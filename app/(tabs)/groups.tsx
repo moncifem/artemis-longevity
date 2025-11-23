@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 
 const myGroups = [
   {
@@ -65,7 +66,8 @@ const suggestedGroups = [
 
 export default function GroupsScreen() {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? 'dark'];
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'my-groups' | 'discover'>('my-groups');
 
   return (
@@ -73,10 +75,18 @@ export default function GroupsScreen() {
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>
-          Fitness <Text style={{ color: colors.primary }}>Groups</Text>
-        </Text>
-        <TouchableOpacity style={[styles.createButton, { backgroundColor: colors.primary }]}>
+        <View>
+          <Text style={[styles.title, { color: colors.text }]}>
+            Fitness <Text style={{ color: colors.primary }}>Groups</Text>
+          </Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Join groups and connect with others
+          </Text>
+        </View>
+        <TouchableOpacity 
+          style={[styles.createButton, { backgroundColor: colors.primary }]}
+          onPress={() => Alert.alert('Coming Soon', 'Group creation feature coming soon!')}
+        >
           <Ionicons name="add" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
@@ -157,7 +167,7 @@ export default function GroupsScreen() {
           <>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Suggested For You</Text>
             {suggestedGroups.map((group) => (
-              <SuggestedGroupCard key={group.id} group={group} colors={colors} />
+              <SuggestedGroupCard key={group.id} group={group} colors={colors} router={router} />
             ))}
           </>
         )}
@@ -192,7 +202,23 @@ function GroupCard({ group, colors }: any) {
   );
 }
 
-function SuggestedGroupCard({ group, colors }: any) {
+function SuggestedGroupCard({ group, colors, router }: any) {
+  const handleJoin = () => {
+    Alert.alert(
+      'Join Group',
+      `Do you want to join ${group.name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Join',
+          onPress: () => {
+            Alert.alert('Success', `You've joined ${group.name}!`);
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <TouchableOpacity style={[styles.suggestedCard, { backgroundColor: colors.card }]}>
       <LinearGradient colors={group.color} style={styles.suggestedAvatar}>
@@ -208,7 +234,10 @@ function SuggestedGroupCard({ group, colors }: any) {
           </Text>
         </View>
       </View>
-      <TouchableOpacity style={[styles.joinButton, { backgroundColor: colors.primary }]}>
+      <TouchableOpacity 
+        style={[styles.joinButton, { backgroundColor: colors.primary }]}
+        onPress={handleJoin}
+      >
         <Text style={styles.joinButtonText}>Join</Text>
       </TouchableOpacity>
     </TouchableOpacity>
@@ -230,6 +259,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
+  },
+  subtitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 4,
   },
   createButton: {
     width: 48,

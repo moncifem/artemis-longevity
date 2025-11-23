@@ -14,11 +14,16 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSHealthShareUsageDescription": "Artemis needs access to your Health data to provide personalized fitness insights, track your activity, sleep, heart rate, and help calculate your fitness age.",
-        "NSHealthUpdateUsageDescription": "Artemis would like to update your Health data."
+        "NSHealthUpdateUsageDescription": "Artemis would like to update your Health data.",
+        "NSLocationWhenInUseUsageDescription": "Artemis needs your location to show nearby workout partners and help you organize group fitness sessions.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Artemis needs your location to show nearby workout partners and help you organize group fitness sessions."
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,
         "com.apple.developer.healthkit.access": []
+      },
+      "config": {
+        "googleMapsApiKey": "YOUR_GOOGLE_MAPS_API_KEY"
       }
     },
     "android": {
@@ -29,7 +34,16 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        }
+      }
     },
     "web": {
       "output": "static",
@@ -47,6 +61,26 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "react-native-health",
+        {
+          "healthSharePermission": "Artemis needs access to your Health data to provide personalized fitness insights, track your activity, sleep, heart rate, and help calculate your fitness age.",
+          "healthUpdatePermission": "Artemis would like to update your Health data."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Artemis needs your location to show nearby workout partners and help you organize group fitness sessions.",
+          "locationWhenInUsePermission": "Artemis needs your location to show nearby workout partners and help you organize group fitness sessions."
+        }
+      ],
+      [
+        "react-native-maps",
+        {
+          "useGoogleMaps": true
         }
       ]
     ],

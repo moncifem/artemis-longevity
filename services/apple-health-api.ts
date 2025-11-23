@@ -1,30 +1,69 @@
-import AppleHealthKit, {
-  HealthValue,
-  HealthKitPermissions,
-} from 'react-native-health';
 import { Platform } from 'react-native';
 
+// Dynamically import react-native-health only on iOS
+let AppleHealthKit: any = null;
+
+try {
+  if (Platform.OS === 'ios') {
+    AppleHealthKit = require('react-native-health').default;
+  }
+} catch (error) {
+  console.log('Apple HealthKit module not available:', error);
+}
+
 // Define permissions we need
-const permissions: HealthKitPermissions = {
+const permissions = {
   permissions: {
     read: [
-      AppleHealthKit.Constants.Permissions.Steps,
-      AppleHealthKit.Constants.Permissions.StepCount,
-      AppleHealthKit.Constants.Permissions.DistanceWalkingRunning,
-      AppleHealthKit.Constants.Permissions.ActiveEnergyBurned,
-      AppleHealthKit.Constants.Permissions.BasalEnergyBurned,
-      AppleHealthKit.Constants.Permissions.HeartRate,
-      AppleHealthKit.Constants.Permissions.RestingHeartRate,
-      AppleHealthKit.Constants.Permissions.HeartRateVariability,
-      AppleHealthKit.Constants.Permissions.SleepAnalysis,
-      AppleHealthKit.Constants.Permissions.BodyTemperature,
-      AppleHealthKit.Constants.Permissions.Height,
-      AppleHealthKit.Constants.Permissions.BodyMass,
-      AppleHealthKit.Constants.Permissions.DateOfBirth,
-      AppleHealthKit.Constants.Permissions.BiologicalSex,
+      'Steps',
+      'StepCount',
+      'DistanceWalkingRunning',
+      'ActiveEnergyBurned',
+      'BasalEnergyBurned',
+      'HeartRate',
+      'RestingHeartRate',
+      'HeartRateVariability',
+      'SleepAnalysis',
+      'Height',
+      'Weight',
+      'DateOfBirth',
+      'BiologicalSex',
     ],
     write: [],
   },
+};
+
+/**
+ * Check if HealthKit is available
+ */
+export const isHealthKitAvailable = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (Platform.OS !== 'ios') {
+      console.log('HealthKit is only available on iOS');
+      resolve(false);
+      return;
+    }
+
+    if (!AppleHealthKit) {
+      console.log('HealthKit module not loaded');
+      resolve(false);
+      return;
+    }
+
+    try {
+      AppleHealthKit.isAvailable((err: any, available: boolean) => {
+        if (err) {
+          console.log('Error checking HealthKit availability:', err);
+          resolve(false);
+          return;
+        }
+        resolve(available);
+      });
+    } catch (error) {
+      console.log('HealthKit not supported:', error);
+      resolve(false);
+    }
+  });
 };
 
 /**
@@ -38,36 +77,48 @@ export const initHealthKit = (): Promise<boolean> => {
       return;
     }
 
-    AppleHealthKit.initHealthKit(permissions, (error: string) => {
-      if (error) {
-        console.log('[ERROR] Cannot grant permissions!', error);
-        resolve(false);
-        return;
-      }
-      console.log('HealthKit initialized successfully');
-      resolve(true);
-    });
-  });
-};
-
-/**
- * Check if HealthKit is available
- */
-export const isHealthKitAvailable = (): Promise<boolean> => {
-  return new Promise((resolve) => {
-    if (Platform.OS !== 'ios') {
+    if (!AppleHealthKit) {
+      console.log('HealthKit module not available. Make sure you are using a development or production build.');
       resolve(false);
       return;
     }
 
-    AppleHealthKit.isAvailable((err: Object, available: boolean) => {
-      if (err) {
-        console.log('Error checking HealthKit availability:', err);
-        resolve(false);
-        return;
-      }
-      resolve(available);
-    });
+    try {
+      AppleHealthKit.initHealthKit(permissions, (error: any) => {
+        if (error) {
+          console.log('[ERROR] Cannot grant permissions:', error);
+          resolve(false);
+          return;
+        }
+        console.log('✅ HealthKit initialized successfully');
+        resolve(true);
+      });
+    } catch (error) {
+      console.log('Error initializing HealthKit:', error);
+      resolve(false);
+    }
+  });
+};
+
+/**
+ * Safe wrapper for HealthKit calls
+ */
+const safeHealthKitCall = <T>(
+  callback: (resolve: (value: T) => void) => void,
+  defaultValue: T
+): Promise<T> => {
+  return new Promise((resolve) => {
+    if (Platform.OS !== 'ios' || !AppleHealthKit) {
+      resolve(defaultValue);
+      return;
+    }
+
+    try {
+      callback(resolve);
+    } catch (error) {
+      console.log('HealthKit call error:', error);
+      resolve(defaultValue);
+    }
   });
 };
 
@@ -75,49 +126,49 @@ export const isHealthKitAvailable = (): Promise<boolean> => {
  * Get today's step count
  */
 export const getTodaySteps = (): Promise<number> => {
-  return new Promise((resolve) => {
+  return safeHealthKitCall((resolve) => {
     const options = {
       date: new Date().toISOString(),
       includeManuallyAdded: true,
     };
 
-    AppleHealthKit.getStepCount(options, (err: Object, results: HealthValue) => {
+    AppleHealthKit.getStepCount(options, (err: any, results: any) => {
       if (err) {
         console.log('Error getting steps:', err);
         resolve(0);
         return;
       }
-      resolve(results.value || 0);
+      resolve(results?.value || 0);
     });
-  });
+  }, 0);
 };
 
 /**
  * Get distance walked/run today (in meters)
  */
 export const getTodayDistance = (): Promise<number> => {
-  return new Promise((resolve) => {
+  return safeHealthKitCall((resolve) => {
     const options = {
       date: new Date().toISOString(),
       includeManuallyAdded: true,
     };
 
-    AppleHealthKit.getDistanceWalkingRunning(options, (err: Object, results: HealthValue) => {
+    AppleHealthKit.getDistanceWalkingRunning(options, (err: any, results: any) => {
       if (err) {
         console.log('Error getting distance:', err);
         resolve(0);
         return;
       }
-      resolve(results.value || 0);
+      resolve(results?.value || 0);
     });
-  });
+  }, 0);
 };
 
 /**
  * Get active calories burned today
  */
 export const getTodayActiveCalories = (): Promise<number> => {
-  return new Promise((resolve) => {
+  return safeHealthKitCall((resolve) => {
     const startDate = new Date();
     startDate.setHours(0, 0, 0, 0);
     
@@ -126,22 +177,22 @@ export const getTodayActiveCalories = (): Promise<number> => {
       endDate: new Date().toISOString(),
     };
 
-    AppleHealthKit.getActiveEnergyBurned(options, (err: Object, results: any) => {
+    AppleHealthKit.getActiveEnergyBurned(options, (err: any, results: any) => {
       if (err) {
         console.log('Error getting active calories:', err);
         resolve(0);
         return;
       }
-      resolve(results.value || 0);
+      resolve(results?.value || 0);
     });
-  });
+  }, 0);
 };
 
 /**
  * Get basal (resting) calories burned today
  */
 export const getTodayBasalCalories = (): Promise<number> => {
-  return new Promise((resolve) => {
+  return safeHealthKitCall((resolve) => {
     const startDate = new Date();
     startDate.setHours(0, 0, 0, 0);
     
@@ -150,38 +201,38 @@ export const getTodayBasalCalories = (): Promise<number> => {
       endDate: new Date().toISOString(),
     };
 
-    AppleHealthKit.getBasalEnergyBurned(options, (err: Object, results: any) => {
+    AppleHealthKit.getBasalEnergyBurned(options, (err: any, results: any) => {
       if (err) {
         console.log('Error getting basal calories:', err);
         resolve(0);
         return;
       }
-      resolve(results.value || 0);
+      resolve(results?.value || 0);
     });
-  });
+  }, 0);
 };
 
 /**
  * Get latest heart rate
  */
 export const getLatestHeartRate = (): Promise<number> => {
-  return new Promise((resolve) => {
-    AppleHealthKit.getLatestHeartRateSample(null, (err: Object, results: any) => {
+  return safeHealthKitCall((resolve) => {
+    AppleHealthKit.getLatestHeartRateSample(null, (err: any, results: any) => {
       if (err) {
         console.log('Error getting heart rate:', err);
         resolve(0);
         return;
       }
-      resolve(results.value || 0);
+      resolve(results?.value || 0);
     });
-  });
+  }, 0);
 };
 
 /**
  * Get resting heart rate
  */
 export const getRestingHeartRate = (): Promise<number> => {
-  return new Promise((resolve) => {
+  return safeHealthKitCall((resolve) => {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 1);
     
@@ -191,22 +242,21 @@ export const getRestingHeartRate = (): Promise<number> => {
       limit: 1,
     };
 
-    AppleHealthKit.getRestingHeartRate(options, (err: Object, results: any[]) => {
+    AppleHealthKit.getRestingHeartRate(options, (err: any, results: any[]) => {
       if (err || !results || results.length === 0) {
-        console.log('Error getting resting heart rate:', err);
         resolve(0);
         return;
       }
-      resolve(results[0].value || 0);
+      resolve(results[0]?.value || 0);
     });
-  });
+  }, 0);
 };
 
 /**
  * Get heart rate variability (HRV)
  */
 export const getHeartRateVariability = (): Promise<number> => {
-  return new Promise((resolve) => {
+  return safeHealthKitCall((resolve) => {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 1);
     
@@ -216,15 +266,14 @@ export const getHeartRateVariability = (): Promise<number> => {
       limit: 1,
     };
 
-    AppleHealthKit.getHeartRateVariabilitySamples(options, (err: Object, results: any[]) => {
+    AppleHealthKit.getHeartRateVariabilitySamples(options, (err: any, results: any[]) => {
       if (err || !results || results.length === 0) {
-        console.log('Error getting HRV:', err);
         resolve(0);
         return;
       }
-      resolve(results[0].value || 0);
+      resolve(results[0]?.value || 0);
     });
-  });
+  }, 0);
 };
 
 /**
@@ -237,7 +286,7 @@ export const getLastNightSleep = (): Promise<{
   lightSleep: number;
   awake: number;
 }> => {
-  return new Promise((resolve) => {
+  return safeHealthKitCall((resolve) => {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 1);
@@ -247,9 +296,8 @@ export const getLastNightSleep = (): Promise<{
       endDate: endDate.toISOString(),
     };
 
-    AppleHealthKit.getSleepSamples(options, (err: Object, results: any[]) => {
+    AppleHealthKit.getSleepSamples(options, (err: any, results: any[]) => {
       if (err || !results) {
-        console.log('Error getting sleep:', err);
         resolve({ totalSleep: 0, deepSleep: 0, remSleep: 0, lightSleep: 0, awake: 0 });
         return;
       }
@@ -295,39 +343,37 @@ export const getLastNightSleep = (): Promise<{
         awake,
       });
     });
-  });
+  }, { totalSleep: 0, deepSleep: 0, remSleep: 0, lightSleep: 0, awake: 0 });
 };
 
 /**
  * Get user's biological sex
  */
 export const getBiologicalSex = (): Promise<'male' | 'female' | 'other' | ''> => {
-  return new Promise((resolve) => {
-    AppleHealthKit.getBiologicalSex(null, (err: Object, results: any) => {
+  return safeHealthKitCall((resolve) => {
+    AppleHealthKit.getBiologicalSex(null, (err: any, results: any) => {
       if (err) {
-        console.log('Error getting biological sex:', err);
         resolve('');
         return;
       }
       
-      const sex = results.value;
+      const sex = results?.value;
       if (sex === 'male' || sex === 'female') {
         resolve(sex);
       } else {
         resolve('other');
       }
     });
-  });
+  }, '');
 };
 
 /**
  * Get user's date of birth and calculate age
  */
 export const getAge = (): Promise<number> => {
-  return new Promise((resolve) => {
-    AppleHealthKit.getDateOfBirth(null, (err: Object, results: any) => {
+  return safeHealthKitCall((resolve) => {
+    AppleHealthKit.getDateOfBirth(null, (err: any, results: any) => {
       if (err) {
-        console.log('Error getting date of birth:', err);
         resolve(0);
         return;
       }
@@ -343,40 +389,38 @@ export const getAge = (): Promise<number> => {
       
       resolve(age);
     });
-  });
+  }, 0);
 };
 
 /**
  * Get user's height (in cm)
  */
 export const getHeight = (): Promise<number> => {
-  return new Promise((resolve) => {
-    AppleHealthKit.getLatestHeight(null, (err: Object, results: any) => {
+  return safeHealthKitCall((resolve) => {
+    AppleHealthKit.getLatestHeight(null, (err: any, results: any) => {
       if (err) {
-        console.log('Error getting height:', err);
         resolve(0);
         return;
       }
       // Convert from meters to cm
-      resolve((results.value || 0) * 100);
+      resolve((results?.value || 0) * 100);
     });
-  });
+  }, 0);
 };
 
 /**
  * Get user's weight (in kg)
  */
 export const getWeight = (): Promise<number> => {
-  return new Promise((resolve) => {
-    AppleHealthKit.getLatestWeight(null, (err: Object, results: any) => {
+  return safeHealthKitCall((resolve) => {
+    AppleHealthKit.getLatestWeight(null, (err: any, results: any) => {
       if (err) {
-        console.log('Error getting weight:', err);
         resolve(0);
         return;
       }
-      resolve(results.value || 0);
+      resolve(results?.value || 0);
     });
-  });
+  }, 0);
 };
 
 /**
@@ -413,9 +457,9 @@ export const getAllHealthData = async () => {
       restingHR,
       hrv,
       sleepHours: sleep.totalSleep / 3600, // Convert seconds to hours
-      deepSleep: sleep.deepSleep / 60, // Convert to minutes
-      remSleep: sleep.remSleep / 60,
-      lightSleep: sleep.lightSleep / 60,
+      deepSleep: sleep.deepSleep, // Already in seconds
+      remSleep: sleep.remSleep,
+      lightSleep: sleep.lightSleep,
       sleepEfficiency: sleep.totalSleep > 0 
         ? Math.round((sleep.totalSleep / (sleep.totalSleep + sleep.awake)) * 100)
         : 0,
@@ -449,4 +493,3 @@ export const getUserProfile = async () => {
     return null;
   }
 };
-

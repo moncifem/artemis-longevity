@@ -1,13 +1,14 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { estimateActivityScore, estimateReadinessScore, estimateSleepScore, getHealthData, getHealthDataSource, HealthDataSource } from '@/services/health-data-service';
+import { estimateActivityScore, estimateReadinessScore, estimateSleepScore, getHealthData, HealthDataSource } from '@/services/health-data-service';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Dimensions, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -24,7 +25,7 @@ interface AssessmentResults {
   fitnessScore: number;
 }
 
-interface OuraData {
+interface HealthData {
   steps: number;
   activeCalories: number;
   totalCalories: number;
@@ -48,43 +49,48 @@ export default function HomeScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme ?? 'dark'];
+  
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [assessmentResults, setAssessmentResults] = useState<AssessmentResults | null>(null);
-  const [ouraData, setOuraData] = useState<OuraData | null>(null);
-  const [isLoadingOura, setIsLoadingOura] = useState(false);
-  const [isOuraConnected, setIsOuraConnected] = useState(false);
+  const [healthData, setHealthData] = useState<HealthData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [healthDataSource, setHealthDataSource] = useState<HealthDataSource>('none');
   const [refreshing, setRefreshing] = useState(false);
-  const stepsIntervalRef = useRef<number | null>(null);
-  const bpmIntervalRef = useRef<number | null>(null);
+  const [selectedMetric, setSelectedMetric] = useState<any>(null);
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  
+  const pollingIntervalRef = useRef<any>(null);
 
-  useEffect(() => {
-    loadUserData();
-    loadHealthData();
+  // Load data on mount and when screen focuses
+  useFocusEffect(
+    React.useCallback(() => {
+      loadAllData();
+      setupPolling();
+      
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+      };
+    }, [])
+  );
 
-    // Set up polling intervals
-    setupPolling();
+  const setupPolling = () => {
+    // Poll health data every 2 minutes
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+    
+    pollingIntervalRef.current = setInterval(() => {
+      loadHealthData();
+    }, 120000); // 2 minutes
+  };
 
-    // Cleanup intervals on unmount
-    return () => {
-      if (stepsIntervalRef.current) clearInterval(stepsIntervalRef.current);
-      if (bpmIntervalRef.current) clearInterval(bpmIntervalRef.current);
-    };
-  }, []);
-
-  const setupPolling = async () => {
-    const source = await getHealthDataSource();
-    if (source === 'none') return;
-
-    // Poll steps and calories every 1 minute (60000ms)
-    stepsIntervalRef.current = setInterval(() => {
-      loadStepsAndCalories();
-    }, 60000);
-
-    // Poll heart rate every 5 minutes (300000ms)
-    bpmIntervalRef.current = setInterval(() => {
-      loadHeartRate();
-    }, 300000);
+  const loadAllData = async () => {
+    await Promise.all([
+      loadUserData(),
+      loadHealthData(),
+    ]);
   };
 
   const loadUserData = async () => {
@@ -105,19 +111,14 @@ export default function HomeScreen() {
 
   const loadHealthData = async () => {
     try {
-      setIsLoadingOura(true);
+      setIsLoading(true);
       
-      // Get data from active health source
       const { data, source } = await getHealthData();
       setHealthDataSource(source);
       
-      if (source === 'oura') {
-        setIsOuraConnected(true);
-      }
-      
       if (data) {
         // If using Apple Health, estimate scores
-        if (source === 'apple-health' && data) {
+        if (source === 'apple-health') {
           const activityScore = estimateActivityScore(data.steps || 0, data.activeCalories || 0);
           const sleepScore = estimateSleepScore(data.sleepHours || 0, data.sleepEfficiency || 0);
           const readinessScore = estimateReadinessScore(
@@ -126,50 +127,108 @@ export default function HomeScreen() {
             sleepScore
           );
           
-          setOuraData({
+          setHealthData({
             ...data,
             activityScore,
             sleepScore,
             readinessScore,
-          } as OuraData);
+          } as HealthData);
         } else {
-          setOuraData(data as OuraData);
+          setHealthData(data as HealthData);
         }
       }
     } catch (error) {
       console.error('Error loading health data:', error);
     } finally {
-      setIsLoadingOura(false);
+      setIsLoading(false);
     }
-  };
-
-  const loadStepsAndCalories = async () => {
-    // Re-fetch health data to update steps
-    loadHealthData();
-  };
-
-  const loadHeartRate = async () => {
-    // Re-fetch health data to update HR
-    loadHealthData();
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([
-      loadUserData(), 
-      loadHealthData(), 
-    ]);
+    await loadAllData();
     setRefreshing(false);
   };
 
   const handleConnectHealth = () => {
-    router.push('/apple-health-connect' as any);
+    Alert.alert(
+      'Connect Health Data',
+      'Choose your preferred health data source',
+      [
+        {
+          text: 'Apple Health',
+          onPress: () => router.push('/apple-health-connect' as any),
+        },
+        {
+          text: 'Oura Ring',
+          onPress: () => router.push('/oura-connect' as any),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
   };
 
-  // Use Oura data if available, otherwise show mock data
-  const todaySteps = ouraData?.steps || 0;
-  const todayGoal = ouraData?.steps ? Math.max(6000, Math.round(ouraData.steps * 0.9)) : 6000;
-  const stepProgress = todaySteps > 0 ? Math.min((todaySteps / todayGoal) * 100, 100) : 0;
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'workout':
+        Alert.alert('Start Workout', 'Choose your workout type:', [
+          { text: 'Strength Training', onPress: () => Alert.alert('Coming Soon', 'Strength training tracker coming soon!') },
+          { text: 'Cardio', onPress: () => Alert.alert('Coming Soon', 'Cardio tracker coming soon!') },
+          { text: 'Flexibility', onPress: () => Alert.alert('Coming Soon', 'Flexibility tracker coming soon!') },
+          { text: 'Cancel', style: 'cancel' },
+        ]);
+        break;
+      case 'groups':
+        router.push('/groups' as any);
+        break;
+      case 'report':
+        router.push('/report' as any);
+        break;
+      case 'challenges':
+        Alert.alert('Challenges', 'Join fitness challenges to compete with friends!', [
+          { text: 'View Challenges', onPress: () => Alert.alert('Coming Soon', 'Challenges feature coming soon!') },
+          { text: 'Cancel', style: 'cancel' },
+        ]);
+        break;
+    }
+  };
+
+  const showMetricDetails = (metric: any) => {
+    setSelectedMetric(metric);
+    setDetailsModalVisible(true);
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 85) return '#10B981';
+    if (score >= 70) return '#F59E0B';
+    if (score >= 50) return '#EC4899';
+    return '#EF4444';
+  };
+
+  const getScoreMessage = (score: number) => {
+    if (score >= 85) return 'Excellent! Keep up the great work.';
+    if (score >= 70) return 'Good performance. Room for improvement.';
+    if (score >= 50) return 'Fair. Focus on recovery and consistency.';
+    return 'Needs attention. Prioritize rest and recovery.';
+  };
+
+  const getTodayDate = () => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const today = new Date();
+    return `${days[today.getDay()]}, ${months[today.getMonth()]} ${today.getDate()}`;
+  };
+
+  // Calculate goals and progress
+  const todaySteps = healthData?.steps || 0;
+  const stepsGoal = 10000;
+  const stepProgress = Math.min((todaySteps / stepsGoal) * 100, 100);
+  
+  const caloriesGoal = 500;
+  const caloriesProgress = healthData?.activeCalories ? Math.min((healthData.activeCalories / caloriesGoal) * 100, 100) : 0;
 
   return (
     <LinearGradient 
@@ -182,172 +241,251 @@ export default function HomeScreen() {
         style={styles.scrollView} 
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
         }
       >
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={[styles.greeting, { color: theme.textSecondary }]}>Welcome back,</Text>
+            <Text style={[styles.greeting, { color: theme.textSecondary }]}>
+              {getTodayDate()}
+            </Text>
             <Text style={[styles.name, { color: theme.text }]}>
-              {userProfile?.name || 'User'} 👋
+              Hello, {userProfile?.name || 'User'} 👋
             </Text>
           </View>
           <View style={styles.headerRight}>
             {healthDataSource === 'oura' && (
-              <View style={[styles.ouraIndicator, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>
-                <Text style={styles.ouraRing}>💍</Text>
-              </View>
+              <TouchableOpacity 
+                style={[styles.healthBadge, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}
+                onPress={() => Alert.alert('Oura Ring', 'Connected and syncing data', [
+                  { text: 'Disconnect', onPress: async () => {
+                    await AsyncStorage.removeItem('ouraApiToken');
+                    loadHealthData();
+                  }},
+                  { text: 'OK' }
+                ])}
+              >
+                <Text style={styles.healthBadgeIcon}>💍</Text>
+              </TouchableOpacity>
             )}
             {healthDataSource === 'apple-health' && (
-              <View style={[styles.ouraIndicator, { backgroundColor: 'rgba(236, 72, 153, 0.2)' }]}>
-                <Text style={styles.ouraRing}>🍎</Text>
-              </View>
+              <TouchableOpacity 
+                style={[styles.healthBadge, { backgroundColor: 'rgba(236, 72, 153, 0.2)' }]}
+                onPress={() => Alert.alert('Apple Health', 'Connected and syncing data', [
+                  { text: 'Disconnect', onPress: async () => {
+                    await AsyncStorage.removeItem('appleHealthConnected');
+                    loadHealthData();
+                  }},
+                  { text: 'OK' }
+                ])}
+              >
+                <Text style={styles.healthBadgeIcon}>🍎</Text>
+              </TouchableOpacity>
             )}
             {healthDataSource === 'none' && (
               <TouchableOpacity 
-                style={[styles.connectHealthButton, { backgroundColor: theme.primary, shadowColor: theme.shadow }]}
+                style={[styles.connectButton, { shadowColor: theme.shadow }]}
                 onPress={handleConnectHealth}
               >
-                <Text style={styles.connectHealthText}>Connect</Text>
+                <LinearGradient
+                  colors={theme.gradients.primary}
+                  style={styles.connectButtonGradient}
+                >
+                  <Ionicons name="add" size={16} color="#FFFFFF" />
+                  <Text style={styles.connectButtonText}>Connect</Text>
+                </LinearGradient>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={[styles.notificationButton, { backgroundColor: theme.card, borderColor: theme.cardBorder, borderWidth: 1 }]}>
-              <Ionicons name="notifications-outline" size={24} color={theme.primary} />
+            <TouchableOpacity 
+              style={[styles.notificationButton, { backgroundColor: theme.card, borderColor: theme.cardBorder, borderWidth: 1 }]}
+              onPress={() => Alert.alert('Notifications', 'No new notifications')}
+            >
+              <Ionicons name="notifications-outline" size={22} color={theme.primary} />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Fitness Age Card */}
         {assessmentResults && (
-          <LinearGradient
-            colors={theme.gradients.primary}
-            style={[styles.fitnessCard, { shadowColor: theme.shadow }]}
+          <TouchableOpacity 
+            activeOpacity={0.9}
+            onPress={() => showMetricDetails({
+              title: 'Your Fitness Age',
+              icon: 'trophy',
+              value: assessmentResults.fitnessAge,
+              actualAge: assessmentResults.actualAge,
+              description: assessmentResults.fitnessAge < assessmentResults.actualAge 
+                ? `Great! Your fitness age is ${assessmentResults.actualAge - assessmentResults.fitnessAge} years younger than your actual age.`
+                : assessmentResults.fitnessAge === assessmentResults.actualAge
+                ? 'Your fitness age matches your actual age. Keep working to improve it!'
+                : `Your fitness age is ${assessmentResults.fitnessAge - assessmentResults.actualAge} years older. Focus on consistent exercise and recovery.`,
+            })}
           >
-            <View style={styles.fitnessCardHeader}>
-              <Text style={styles.fitnessCardTitle}>Your Fitness Age</Text>
-              <Ionicons name="trophy" size={24} color="#FFFFFF" />
-            </View>
-            <View style={styles.fitnessAgeContainer}>
-              <Text style={styles.fitnessAge}>{assessmentResults.fitnessAge}</Text>
-              <Text style={styles.fitnessAgeLabel}>years</Text>
-            </View>
-            <View style={styles.comparisonRow}>
-              <View style={styles.comparisonItem}>
-                <Text style={styles.comparisonLabel}>Actual Age</Text>
-                <Text style={styles.comparisonValue}>{assessmentResults.actualAge}</Text>
+            <LinearGradient
+              colors={theme.gradients.primary}
+              style={[styles.fitnessCard, { shadowColor: theme.shadow }]}
+            >
+              <View style={styles.fitnessCardHeader}>
+                <Text style={styles.fitnessCardTitle}>Your Fitness Age</Text>
+                <Ionicons name="trophy" size={24} color="#FFFFFF" />
               </View>
-              <View style={styles.divider} />
-              <View style={styles.comparisonItem}>
-                <Text style={styles.comparisonLabel}>Difference</Text>
-                <Text style={styles.comparisonValue}>
-                  {assessmentResults.actualAge - assessmentResults.fitnessAge > 0 ? '-' : '+'}
-                  {Math.abs(assessmentResults.actualAge - assessmentResults.fitnessAge)} years
-                </Text>
+              <View style={styles.fitnessAgeContainer}>
+                <Text style={styles.fitnessAge}>{assessmentResults.fitnessAge}</Text>
+                <Text style={styles.fitnessAgeLabel}>years</Text>
               </View>
-            </View>
-          </LinearGradient>
+              <View style={styles.comparisonRow}>
+                <View style={styles.comparisonItem}>
+                  <Text style={styles.comparisonLabel}>Actual Age</Text>
+                  <Text style={styles.comparisonValue}>{assessmentResults.actualAge}</Text>
+                </View>
+                <View style={styles.divider} />
+                <View style={styles.comparisonItem}>
+                  <Text style={styles.comparisonLabel}>Difference</Text>
+                  <Text style={styles.comparisonValue}>
+                    {assessmentResults.actualAge - assessmentResults.fitnessAge > 0 ? '−' : '+'}
+                    {Math.abs(assessmentResults.actualAge - assessmentResults.fitnessAge)} years
+                  </Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
         )}
 
-        {/* Health Cards */}
-        {healthDataSource !== 'none' && ouraData && (
+        {/* Health Score Cards */}
+        {healthDataSource !== 'none' && healthData && (
           <>
-            <View style={styles.ouraScoresContainer}>
+            <View style={styles.scoresContainer}>
               <ScoreCard 
                 title="Activity" 
-                score={ouraData.activityScore} 
+                score={healthData.activityScore} 
                 icon="fitness" 
                 gradient={['#EC4899', '#F472B6']}
                 theme={theme}
+                onPress={() => showMetricDetails({
+                  title: 'Activity Score',
+                  icon: 'fitness',
+                  score: healthData.activityScore,
+                  description: getScoreMessage(healthData.activityScore),
+                  details: [
+                    { label: 'Steps', value: `${healthData.steps.toLocaleString()}`, icon: 'footsteps' },
+                    { label: 'Calories', value: `${Math.round(healthData.activeCalories)} kcal`, icon: 'flame' },
+                    { label: 'Distance', value: `${(healthData.distance / 1000).toFixed(2)} km`, icon: 'location' },
+                  ]
+                })}
               />
               <ScoreCard 
                 title="Sleep" 
-                score={ouraData.sleepScore} 
+                score={healthData.sleepScore} 
                 icon="moon" 
                 gradient={['#8B5CF6', '#A78BFA']}
                 theme={theme}
+                onPress={() => showMetricDetails({
+                  title: 'Sleep Score',
+                  icon: 'moon',
+                  score: healthData.sleepScore,
+                  description: getScoreMessage(healthData.sleepScore),
+                  details: [
+                    { label: 'Total Sleep', value: `${healthData.sleepHours.toFixed(1)}h`, icon: 'time' },
+                    { label: 'Deep Sleep', value: `${Math.round(healthData.deepSleep / 60)}min`, icon: 'battery-charging' },
+                    { label: 'REM Sleep', value: `${Math.round(healthData.remSleep / 60)}min`, icon: 'sparkles' },
+                    { label: 'Efficiency', value: `${healthData.sleepEfficiency}%`, icon: 'checkmark-circle' },
+                  ]
+                })}
               />
               <ScoreCard 
                 title="Readiness" 
-                score={ouraData.readinessScore} 
+                score={healthData.readinessScore} 
                 icon="heart" 
                 gradient={['#10B981', '#34D399']}
                 theme={theme}
+                onPress={() => showMetricDetails({
+                  title: 'Readiness Score',
+                  icon: 'heart',
+                  score: healthData.readinessScore,
+                  description: getScoreMessage(healthData.readinessScore),
+                  details: [
+                    { label: 'Resting HR', value: `${Math.round(healthData.restingHR)} bpm`, icon: 'heart' },
+                    { label: 'HRV Balance', value: `${Math.round(healthData.hrvBalance)}`, icon: 'pulse' },
+                    { label: 'Recovery', value: `${healthData.recoveryIndex}%`, icon: 'trending-up' },
+                  ]
+                })}
               />
             </View>
 
-            {/* Detailed Sleep Metrics */}
-            {ouraData.sleepHours > 0 && (
-              <LinearGradient
-                colors={theme.gradients.card}
-                style={[styles.card, { borderColor: theme.cardBorder, borderWidth: 1, shadowColor: theme.shadow }]}
-              >
-                <View style={styles.cardHeader}>
-                  <Text style={[styles.cardTitle, { color: theme.text }]}>
-                    Sleep Analysis
-                  </Text>
-                  <Text style={[styles.sleepTimeLabel, { color: theme.textSecondary }]}>Last Night</Text>
-                </View>
-                <View style={styles.sleepMetricsGrid}>
-                  <MetricItem
-                    label="Total Sleep"
-                    value={`${ouraData.sleepHours.toFixed(1)}h`}
-                    icon="moon"
-                    theme={theme}
-                  />
-                  <MetricItem
-                    label="Deep Sleep"
-                    value={`${Math.round(ouraData.deepSleep / 60)}min`}
-                    icon="battery-charging"
-                    theme={theme}
-                  />
-                  <MetricItem
-                    label="REM Sleep"
-                    value={`${Math.round(ouraData.remSleep / 60)}min`}
-                    icon="sparkles"
-                    theme={theme}
-                  />
-                  <MetricItem
-                    label="Efficiency"
-                    value={`${ouraData.sleepEfficiency}%`}
-                    icon="checkmark-circle"
-                    theme={theme}
-                  />
-                </View>
-              </LinearGradient>
-            )}
-
-            {/* Detailed Readiness Metrics */}
+            {/* Today's Activity Card */}
             <LinearGradient
               colors={theme.gradients.card}
               style={[styles.card, { borderColor: theme.cardBorder, borderWidth: 1, shadowColor: theme.shadow }]}
             >
-              <Text style={[styles.cardTitle, { color: theme.text, marginBottom: 16 }]}>
-                Recovery Metrics
-              </Text>
-              <View style={styles.sleepMetricsGrid}>
-                <MetricItem
-                  label="HRV Balance"
-                  value={ouraData.hrvBalance > 0 ? `${Math.round(ouraData.hrvBalance)}` : '---'}
-                  icon="pulse"
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={[styles.cardTitle, { color: theme.text }]}>Today's Activity</Text>
+                  <Text style={[styles.cardSubtitle, { color: theme.textSecondary }]}>
+                    {healthDataSource === 'apple-health' ? 'Apple Health' : healthDataSource === 'oura' ? 'Oura Ring' : 'Demo Mode'}
+                  </Text>
+                </View>
+                {isLoading && <ActivityIndicator size="small" color={theme.primary} />}
+              </View>
+
+              {/* Progress Rings */}
+              <View style={styles.progressRings}>
+                <View style={styles.progressRingContainer}>
+                  <View style={styles.progressRing}>
+                    <Text style={[styles.progressValue, { color: theme.text }]}>
+                      {todaySteps.toLocaleString()}
+                    </Text>
+                    <Text style={[styles.progressLabel, { color: theme.textSecondary }]}>steps</Text>
+                  </View>
+                  <View style={styles.progressBarWrapper}>
+                    <View style={[styles.progressBar, { backgroundColor: theme.input }]}>
+                      <LinearGradient
+                        colors={['#EC4899', '#F472B6']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[styles.progressBarFill, { width: `${stepProgress}%` }]}
+                      />
+                    </View>
+                    <Text style={[styles.progressGoal, { color: theme.textSecondary }]}>
+                      Goal: {stepsGoal.toLocaleString()}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Stats Grid */}
+              <View style={styles.statsGrid}>
+                <StatItem 
+                  icon="flame" 
+                  label="Active Calories" 
+                  value={`${Math.round(healthData.activeCalories || 0)}`}
+                  unit="kcal"
                   theme={theme}
                 />
-                <MetricItem
-                  label="Recovery"
-                  value={ouraData.recoveryIndex > 0 ? `${ouraData.recoveryIndex}%` : '---'}
-                  icon="trending-up"
+                <StatItem 
+                  icon="location-outline" 
+                  label="Distance" 
+                  value={(healthData.distance / 1000).toFixed(2)}
+                  unit="km"
                   theme={theme}
                 />
-                <MetricItem
-                  label="Temp Var"
-                  value={ouraData.temperatureDeviation !== 0 ? `${ouraData.temperatureDeviation.toFixed(1)}°C` : '---'}
-                  icon="thermometer"
+                <StatItem 
+                  icon="heart-outline" 
+                  label="Resting HR" 
+                  value={Math.round(healthData.restingHR || 0).toString()}
+                  unit="bpm"
                   theme={theme}
                 />
-                <MetricItem
-                  label="Resting HR"
-                  value={ouraData.restingHR > 0 ? `${Math.round(ouraData.restingHR)}` : '---'}
-                  icon="heart"
+                <StatItem 
+                  icon="time-outline" 
+                  label="Sleep" 
+                  value={healthData.sleepHours.toFixed(1)}
+                  unit="hours"
                   theme={theme}
                 />
               </View>
@@ -355,108 +493,32 @@ export default function HomeScreen() {
           </>
         )}
 
-        {/* Steps Progress */}
-        <LinearGradient
-          colors={theme.gradients.card}
-          style={[styles.card, { borderColor: theme.cardBorder, borderWidth: 1, shadowColor: theme.shadow }]}
-        >
-          <View style={styles.cardHeader}>
-            <View>
-              <Text style={[styles.cardTitle, { color: theme.text }]}>
-                {healthDataSource !== 'none' ? "Today's Activity" : "Activity (Demo)"}
+        {/* No Data State */}
+        {healthDataSource === 'none' && (
+          <LinearGradient
+            colors={theme.gradients.card}
+            style={[styles.card, { borderColor: theme.cardBorder, borderWidth: 1, shadowColor: theme.shadow }]}
+          >
+            <View style={styles.emptyState}>
+              <Ionicons name="fitness-outline" size={64} color={theme.textSecondary} />
+              <Text style={[styles.emptyTitle, { color: theme.text }]}>No Health Data</Text>
+              <Text style={[styles.emptyDescription, { color: theme.textSecondary }]}>
+                Connect Apple Health or Oura Ring to start tracking your fitness journey
               </Text>
-              {healthDataSource === 'oura' && (
-                <Text style={[styles.sleepTimeLabel, { color: theme.textSecondary, marginTop: 2 }]}>
-                  Activity Day: 4 AM - 4 AM
-                </Text>
-              )}
-              {healthDataSource === 'apple-health' && (
-                <Text style={[styles.sleepTimeLabel, { color: theme.textSecondary, marginTop: 2 }]}>
-                  Synced with Apple Health
-                </Text>
-              )}
-            </View>
-            {isLoadingOura && <ActivityIndicator size="small" color={theme.primary} />}
-            {healthDataSource === 'none' && (
-              <TouchableOpacity onPress={handleConnectHealth}>
-                <Text style={[styles.demoLabel, { color: theme.primary }]}>Connect Health 🍎</Text>
+              <TouchableOpacity 
+                style={[styles.emptyButton, { shadowColor: theme.shadow }]}
+                onPress={handleConnectHealth}
+              >
+                <LinearGradient
+                  colors={theme.gradients.button}
+                  style={styles.emptyButtonGradient}
+                >
+                  <Text style={styles.emptyButtonText}>Connect Health Data</Text>
+                </LinearGradient>
               </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Circular Progress */}
-          <View style={styles.progressContainer}>
-            <View style={styles.circularProgress}>
-              <Text style={[styles.stepsCount, { color: theme.text }]}>
-                {todaySteps > 0 ? todaySteps.toLocaleString() : '---'}
-              </Text>
-              {todaySteps > 0 && (
-                <Text style={[styles.stepsGoal, { color: theme.textSecondary }]}>
-                  / {todayGoal.toLocaleString()}
-                </Text>
-              )}
             </View>
-          </View>
-
-          {/* Stats Row */}
-          <View style={styles.statsRow}>
-            <StatItem 
-              icon="flame" 
-              label="kcal" 
-              value={ouraData?.activeCalories ? Math.round(ouraData.activeCalories).toString() : '---'} 
-              theme={theme}
-            />
-            <StatItem 
-              icon="location-outline" 
-              label="km" 
-              value={ouraData?.distance ? (ouraData.distance / 1000).toFixed(2) : '---'} 
-              theme={theme}
-            />
-            <StatItem 
-              icon="heart-outline" 
-              label="bpm" 
-              value={ouraData?.restingHR ? Math.round(ouraData.restingHR).toString() : '---'} 
-              theme={theme}
-            />
-          </View>
-        </LinearGradient>
-
-        {/* Your Progress */}
-        <LinearGradient
-          colors={theme.gradients.card}
-          style={[styles.card, { borderColor: theme.cardBorder, borderWidth: 1, shadowColor: theme.shadow }]}
-        >
-          <View style={styles.cardHeader}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>Your Progress</Text>
-            <TouchableOpacity style={[styles.dropdown, { backgroundColor: theme.input }]}>
-              <Text style={[styles.dropdownText, { color: theme.text }]}>This Week</Text>
-              <Ionicons name="chevron-down" size={16} color={theme.textSecondary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.weekProgress}>
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Today'].map((day, index) => (
-              <View key={day} style={styles.dayItem}>
-                <View style={[
-                  styles.dayCircle,
-                  index === 6 && { backgroundColor: theme.primary },
-                  index !== 6 && { backgroundColor: theme.input },
-                ]}>
-                  <Text style={[
-                    styles.dayNumber,
-                    index === 6 && { color: '#FFFFFF' },
-                    index !== 6 && { color: theme.textSecondary },
-                  ]}>
-                    {16 + index}
-                  </Text>
-                </View>
-                <Text style={[styles.dayLabel, { color: theme.textSecondary }]}>
-                  {day === 'Today' ? 'Today' : day.slice(0, 3)}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </LinearGradient>
+          </LinearGradient>
+        )}
 
         {/* Quick Actions */}
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Quick Actions</Text>
@@ -466,70 +528,175 @@ export default function HomeScreen() {
             label="Start Workout" 
             theme={theme}
             gradient={theme.gradients.primary}
+            onPress={() => handleQuickAction('workout')}
           />
           <ActionButton 
             icon="people" 
             label="My Groups" 
             theme={theme}
             gradient={['#EC4899', '#F472B6']}
+            onPress={() => handleQuickAction('groups')}
           />
           <ActionButton 
             icon="bar-chart" 
             label="View Report" 
             theme={theme}
             gradient={['#10B981', '#34D399']}
+            onPress={() => handleQuickAction('report')}
           />
           <ActionButton 
             icon="trophy" 
             label="Challenges" 
             theme={theme}
             gradient={['#F59E0B', '#FBBF24']}
+            onPress={() => handleQuickAction('challenges')}
           />
         </View>
       </ScrollView>
+
+      {/* Metric Details Modal */}
+      <Modal
+        visible={detailsModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setDetailsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <LinearGradient
+            colors={theme.gradients.background}
+            style={[styles.modalContent, { shadowColor: theme.shadow }]}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleContainer}>
+                {selectedMetric?.icon && (
+                  <View style={[styles.modalIcon, { backgroundColor: theme.input }]}>
+                    <Ionicons name={selectedMetric.icon} size={28} color={theme.primary} />
+                  </View>
+                )}
+                <Text style={[styles.modalTitle, { color: theme.text }]}>{selectedMetric?.title}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setDetailsModalVisible(false)}>
+                <Ionicons name="close-circle" size={32} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedMetric?.score !== undefined && (
+              <View style={styles.modalScore}>
+                <Text style={[styles.modalScoreValue, { color: getScoreColor(selectedMetric.score) }]}>
+                  {selectedMetric.score}
+                </Text>
+                <Text style={[styles.modalScoreLabel, { color: theme.textSecondary }]}>Score</Text>
+              </View>
+            )}
+
+            {selectedMetric?.actualAge !== undefined && (
+              <View style={styles.modalStats}>
+                <View style={styles.modalStat}>
+                  <Text style={[styles.modalStatValue, { color: theme.text }]}>{selectedMetric.value}</Text>
+                  <Text style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Fitness Age</Text>
+                </View>
+                <View style={styles.modalStat}>
+                  <Text style={[styles.modalStatValue, { color: theme.text }]}>{selectedMetric.actualAge}</Text>
+                  <Text style={[styles.modalStatLabel, { color: theme.textSecondary }]}>Actual Age</Text>
+                </View>
+              </View>
+            )}
+
+            <Text style={[styles.modalDescription, { color: theme.textSecondary }]}>
+              {selectedMetric?.description}
+            </Text>
+
+            {selectedMetric?.details && (
+              <View style={styles.modalDetails}>
+                {selectedMetric.details.map((detail: any, index: number) => (
+                  <View key={index} style={[styles.modalDetailItem, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                    <View style={[styles.modalDetailIcon, { backgroundColor: theme.input }]}>
+                      <Ionicons name={detail.icon} size={20} color={theme.primary} />
+                    </View>
+                    <View style={styles.modalDetailContent}>
+                      <Text style={[styles.modalDetailLabel, { color: theme.textSecondary }]}>{detail.label}</Text>
+                      <Text style={[styles.modalDetailValue, { color: theme.text }]}>{detail.value}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <TouchableOpacity 
+              style={[styles.modalButton, { shadowColor: theme.shadow }]}
+              onPress={() => setDetailsModalVisible(false)}
+            >
+              <LinearGradient
+                colors={theme.gradients.button}
+                style={styles.modalButtonGradient}
+              >
+                <Text style={styles.modalButtonText}>Got it</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
 
-function ScoreCard({ title, score, icon, gradient, theme }: { title: string; score: number; icon: any; gradient: readonly [string, string, ...string[]], theme: any }) {
+function ScoreCard({ title, score, icon, gradient, theme, onPress }: any) {
+  const getScoreColor = (score: number) => {
+    if (score >= 85) return '#10B981';
+    if (score >= 70) return '#F59E0B';
+    return '#EF4444';
+  };
+
   return (
-    <LinearGradient 
-      colors={gradient as any} 
-      style={[styles.scoreCard, { shadowColor: theme.shadow }]}
+    <TouchableOpacity 
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={{ flex: 1 }}
     >
-      <Ionicons name={icon} size={24} color="#FFFFFF" />
-      <Text style={styles.scoreValue}>{score > 0 ? score : '---'}</Text>
-      <Text style={styles.scoreLabel}>{title}</Text>
-    </LinearGradient>
+      <LinearGradient 
+        colors={gradient} 
+        style={[styles.scoreCard, { shadowColor: theme.shadow }]}
+      >
+        <Ionicons name={icon} size={24} color="#FFFFFF" />
+        <Text style={styles.scoreValue}>{score > 0 ? score : '---'}</Text>
+        <Text style={styles.scoreLabel}>{title}</Text>
+        {score > 0 && (
+          <View style={styles.scoreIndicator}>
+            <View style={[styles.scoreIndicatorDot, { backgroundColor: getScoreColor(score) }]} />
+          </View>
+        )}
+      </LinearGradient>
+    </TouchableOpacity>
   );
 }
 
-function StatItem({ icon, label, value, theme }: any) {
+function StatItem({ icon, label, value, unit, theme }: any) {
   return (
     <View style={styles.statItem}>
-      <Ionicons name={icon} size={20} color={theme.primary} />
-      <Text style={[styles.statValue, { color: theme.text }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{label}</Text>
-    </View>
-  );
-}
-
-function MetricItem({ icon, label, value, theme }: any) {
-  return (
-    <View style={styles.metricItem}>
-      <View style={[styles.metricIconContainer, { backgroundColor: theme.input }]}>
-        <Ionicons name={icon} size={20} color={theme.primary} />
+      <View style={[styles.statIcon, { backgroundColor: theme.input }]}>
+        <Ionicons name={icon} size={18} color={theme.primary} />
       </View>
-      <Text style={[styles.metricValue, { color: theme.text }]}>{value}</Text>
-      <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <View style={styles.statContent}>
+        <Text style={[styles.statLabel, { color: theme.textSecondary }]}>{label}</Text>
+        <Text style={[styles.statValue, { color: theme.text }]}>
+          {value} <Text style={[styles.statUnit, { color: theme.textSecondary }]}>{unit}</Text>
+        </Text>
+      </View>
     </View>
   );
 }
 
-function ActionButton({ icon, label, theme, gradient }: any) {
+function ActionButton({ icon, label, theme, gradient, onPress }: any) {
   return (
-    <TouchableOpacity style={styles.actionButton}>
-      <LinearGradient colors={gradient} style={[styles.actionGradient, { shadowColor: theme.shadow }]}>
+    <TouchableOpacity 
+      style={styles.actionButton}
+      onPress={onPress}
+      activeOpacity={0.9}
+    >
+      <LinearGradient 
+        colors={gradient} 
+        style={[styles.actionGradient, { shadowColor: theme.shadow }]}
+      >
         <Ionicons name={icon} size={32} color="#FFFFFF" />
       </LinearGradient>
       <Text style={[styles.actionLabel, { color: theme.text }]}>{label}</Text>
@@ -545,7 +712,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   header: {
     flexDirection: 'row',
@@ -553,44 +720,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
   greeting: {
-    fontSize: 14,
+    fontSize: 13,
     marginBottom: 4,
+    fontWeight: '600',
   },
   name: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
-  ouraIndicator: {
+  healthBadge: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  ouraRing: {
+  healthBadgeIcon: {
     fontSize: 20,
   },
-  connectHealthButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  connectButton: {
     borderRadius: 20,
+    overflow: 'hidden',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
-  connectHealthText: {
+  connectButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  connectButtonText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
   },
   notificationButton: {
@@ -600,18 +774,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  demoLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  ouraScoresContainer: {
+  scoresContainer: {
     flexDirection: 'row',
     paddingHorizontal: 20,
     gap: 12,
     marginBottom: 20,
   },
   scoreCard: {
-    flex: 1,
     padding: 16,
     borderRadius: 20,
     alignItems: 'center',
@@ -619,6 +788,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+    position: 'relative',
   },
   scoreValue: {
     fontSize: 28,
@@ -630,6 +800,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.9)',
+  },
+  scoreIndicator: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+  },
+  scoreIndicatorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   fitnessCard: {
     marginHorizontal: 20,
@@ -711,72 +893,116 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
-  dropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  dropdownText: {
+  cardSubtitle: {
     fontSize: 12,
     fontWeight: '600',
+    marginTop: 2,
   },
-  progressContainer: {
-    alignItems: 'center',
+  progressRings: {
     marginBottom: 24,
   },
-  circularProgress: {
+  progressRingContainer: {
     alignItems: 'center',
   },
-  stepsCount: {
+  progressRing: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  progressValue: {
     fontSize: 42,
     fontWeight: '800',
   },
-  stepsGoal: {
+  progressLabel: {
     fontSize: 14,
     fontWeight: '600',
     marginTop: 4,
   },
-  statsRow: {
+  progressBarWrapper: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  progressBar: {
+    width: '100%',
+    height: 12,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 6,
+  },
+  progressGoal: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   statItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    width: (width - 96) / 2,
+    gap: 12,
+  },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statContent: {
+    flex: 1,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 2,
   },
   statValue: {
     fontSize: 16,
     fontWeight: '700',
   },
-  statLabel: {
+  statUnit: {
     fontSize: 12,
     fontWeight: '600',
   },
-  weekProgress: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  dayItem: {
+  emptyState: {
     alignItems: 'center',
-    gap: 8,
+    paddingVertical: 40,
   },
-  dayCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    marginTop: 16,
+    marginBottom: 8,
   },
-  dayNumber: {
-    fontSize: 12,
-    fontWeight: '700',
+  emptyDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 32,
+    marginBottom: 24,
   },
-  dayLabel: {
-    fontSize: 10,
-    fontWeight: '600',
+  emptyButton: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  emptyButtonGradient: {
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+  },
+  emptyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   sectionTitle: {
     fontSize: 20,
@@ -811,35 +1037,126 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  sleepMetricsGrid: {
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    maxHeight: '85%',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  modalHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
-  metricItem: {
-    width: (width - 100) / 2,
+  modalIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
   },
-  metricIconContainer: {
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  modalScore: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalScoreValue: {
+    fontSize: 64,
+    fontWeight: '800',
+  },
+  modalScoreLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  modalStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 24,
+  },
+  modalStat: {
+    alignItems: 'center',
+  },
+  modalStatValue: {
+    fontSize: 32,
+    fontWeight: '800',
+  },
+  modalStatLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  modalDescription: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  modalDetails: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  modalDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    gap: 12,
+    borderWidth: 1,
+  },
+  modalDetailIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  metricValue: {
-    fontSize: 18,
-    fontWeight: '700',
+  modalDetailContent: {
+    flex: 1,
   },
-  metricLabel: {
-    fontSize: 12,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  sleepTimeLabel: {
+  modalDetailLabel: {
     fontSize: 12,
     fontWeight: '600',
+    marginBottom: 2,
+  },
+  modalDetailValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalButton: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  modalButtonGradient: {
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
 });
