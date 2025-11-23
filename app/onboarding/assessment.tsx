@@ -3,6 +3,8 @@ import {
   getGripStrengthPerformanceLevel,
   getGripStrengthReferenceValues
 } from '@/constants/grip-strength-norms';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -21,7 +23,6 @@ const assessmentTests = [
     inputType: 'number' as const,
     unit: 'kg',
     placeholder: 'Enter kg (e.g., 45)',
-    gradient: ['#F3E8FF', '#FCE7F3'] as const,
   },
   {
     id: 'endurance',
@@ -30,7 +31,6 @@ const assessmentTests = [
     icon: '🏃',
     options: ['20+ min', '15-20 min', '12-15 min', '10-12 min', '<10 min'],
     unit: 'minutes',
-    gradient: ['#DDD6FE', '#FBCFE8'] as const,
   },
   {
     id: 'flexibility',
@@ -39,7 +39,6 @@ const assessmentTests = [
     icon: '🤸',
     options: ['Above knees', 'Touch knees', 'Touch ankles', 'Touch toes', 'Palms flat on floor'],
     unit: 'reach',
-    gradient: ['#C4B5FD', '#F9A8D4'] as const,
   },
   {
     id: 'cardio',
@@ -48,12 +47,13 @@ const assessmentTests = [
     icon: '❤️',
     options: ['90+ bpm', '80-90 bpm', '70-80 bpm', '65-70 bpm', '<65 bpm'],
     unit: 'bpm',
-    gradient: ['#A78BFA', '#F472B6'] as const,
   },
 ];
 
 export default function Assessment() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'dark'];
   const [currentTest, setCurrentTest] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [inputValue, setInputValue] = useState('');
@@ -238,33 +238,33 @@ export default function Assessment() {
 
   return (
     <LinearGradient
-      colors={['#FAF5FF', '#FFFFFF', '#FDF2F8']}
+      colors={theme.gradients.background}
       style={styles.container}
     >
-      <StatusBar style="dark" />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+        <TouchableOpacity onPress={handleBack} style={[styles.backButton, { shadowColor: theme.shadow }]}>
           <LinearGradient
-            colors={['#F3E8FF', '#FFFFFF']}
-            style={styles.backButtonGradient}
+            colors={theme.gradients.card}
+            style={[styles.backButtonGradient, { borderColor: theme.cardBorder, borderWidth: 1 }]}
           >
-            <Text style={styles.backText}>←</Text>
+            <Text style={[styles.backText, { color: theme.primary }]}>←</Text>
           </LinearGradient>
         </TouchableOpacity>
         <View style={styles.stepIndicator}>
-          <Text style={styles.stepText}>{currentTest + 1}</Text>
-          <Text style={styles.stepDivider}>/</Text>
-          <Text style={styles.stepTotal}>{assessmentTests.length}</Text>
+          <Text style={[styles.stepText, { color: theme.primary }]}>{currentTest + 1}</Text>
+          <Text style={[styles.stepDivider, { color: theme.textSecondary }]}>/</Text>
+          <Text style={[styles.stepTotal, { color: theme.textSecondary }]}>{assessmentTests.length}</Text>
         </View>
       </View>
 
       {/* Progress bar */}
       <View style={styles.progressBarContainer}>
-        <View style={styles.progressBarBg}>
+        <View style={[styles.progressBarBg, { backgroundColor: theme.cardBorder }]}>
           <LinearGradient
-            colors={['#8B5CF6', '#EC4899']}
+            colors={theme.gradients.primary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={[
@@ -277,47 +277,47 @@ export default function Assessment() {
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
         {/* Test Card */}
-        <View style={styles.testCardWrapper}>
+        <View style={[styles.testCardWrapper, { shadowColor: theme.shadow }]}>
           <LinearGradient
-            colors={currentTestData.gradient}
-            style={styles.testCard}
+            colors={theme.gradients.card}
+            style={[styles.testCard, { borderColor: theme.cardBorder, borderWidth: 1 }]}
           >
-            <View style={styles.testIconContainer}>
+            <View style={[styles.testIconContainer, { backgroundColor: theme.input }]}>
               <Text style={styles.testIcon}>{currentTestData.icon}</Text>
             </View>
-            <Text style={styles.testTitle}>{currentTestData.title}</Text>
-            <Text style={styles.testDescription}>{currentTestData.description}</Text>
+            <Text style={[styles.testTitle, { color: theme.text }]}>{currentTestData.title}</Text>
+            <Text style={[styles.testDescription, { color: theme.textSecondary }]}>{currentTestData.description}</Text>
           </LinearGradient>
         </View>
 
         {'inputType' in currentTestData ? (
-          // Input field for numeric tests (e.g., grip strength)
+          // Input field for numeric tests
           <>
-            <Text style={styles.selectText}>Enter your measurement:</Text>
-            <View style={styles.inputContainer}>
+            <Text style={[styles.selectText, { color: theme.text }]}>Enter your measurement:</Text>
+            <View style={[styles.inputContainer, { shadowColor: theme.shadow }]}>
               <LinearGradient
-                colors={['#F3E8FF', '#FCE7F3']}
-                style={styles.inputGradient}
+                colors={theme.gradients.card}
+                style={[styles.inputGradient, { borderColor: theme.primary, borderWidth: 1 }]}
               >
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { color: theme.text }]}
                   value={inputValue}
                   onChangeText={setInputValue}
                   placeholder={currentTestData.placeholder || 'Enter value'}
                   keyboardType="decimal-pad"
-                  placeholderTextColor="#C4B5FD"
+                  placeholderTextColor={theme.textSecondary}
                 />
-                <Text style={styles.inputUnit}>{currentTestData.unit}</Text>
+                <Text style={[styles.inputUnit, { color: theme.primary }]}>{currentTestData.unit}</Text>
               </LinearGradient>
             </View>
             
             <TouchableOpacity
-              style={styles.submitButton}
+              style={[styles.submitButton, { shadowColor: theme.shadow }]}
               onPress={handleInputSubmit}
               activeOpacity={0.8}
             >
               <LinearGradient
-                colors={['#8B5CF6', '#EC4899']}
+                colors={theme.gradients.button}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.submitButtonGradient}
@@ -335,29 +335,29 @@ export default function Assessment() {
               const refs = getGripStrengthReferenceValues(sex, age);
               
               return (
-                <View style={styles.referenceContainer}>
+                <View style={[styles.referenceContainer, { shadowColor: theme.shadow }]}>
                   <LinearGradient
-                    colors={['#F3E8FF', '#FCE7F3']}
-                    style={styles.referenceGradient}
+                    colors={theme.gradients.card}
+                    style={[styles.referenceGradient, { borderColor: theme.cardBorder, borderWidth: 1 }]}
                   >
-                    <Text style={styles.referenceTitle}>
+                    <Text style={[styles.referenceTitle, { color: theme.text }]}>
                       Reference Values ({refs.ageGroup} years, {sex})
                     </Text>
                     <View style={styles.referenceGrid}>
-                      <View style={styles.referenceItem}>
+                      <View style={[styles.referenceItem, { backgroundColor: theme.input }]}>
                         <Text style={styles.referenceEmoji}>⭐</Text>
-                        <Text style={styles.referenceLabel}>Below Average</Text>
-                        <Text style={styles.referenceValue}>&lt;{refs.poor.toFixed(1)} kg</Text>
+                        <Text style={[styles.referenceLabel, { color: theme.textSecondary }]}>Below Average</Text>
+                        <Text style={[styles.referenceValue, { color: theme.primary }]}>&lt;{refs.poor.toFixed(1)} kg</Text>
                       </View>
-                      <View style={styles.referenceItem}>
+                      <View style={[styles.referenceItem, { backgroundColor: theme.input }]}>
                         <Text style={styles.referenceEmoji}>⭐⭐</Text>
-                        <Text style={styles.referenceLabel}>Average</Text>
-                        <Text style={styles.referenceValue}>~{refs.average.toFixed(1)} kg</Text>
+                        <Text style={[styles.referenceLabel, { color: theme.textSecondary }]}>Average</Text>
+                        <Text style={[styles.referenceValue, { color: theme.primary }]}>~{refs.average.toFixed(1)} kg</Text>
                       </View>
-                      <View style={styles.referenceItem}>
+                      <View style={[styles.referenceItem, { backgroundColor: theme.input }]}>
                         <Text style={styles.referenceEmoji}>⭐⭐⭐</Text>
-                        <Text style={styles.referenceLabel}>Excellent</Text>
-                        <Text style={styles.referenceValue}>&gt;{refs.excellent.toFixed(1)} kg</Text>
+                        <Text style={[styles.referenceLabel, { color: theme.textSecondary }]}>Excellent</Text>
+                        <Text style={[styles.referenceValue, { color: theme.primary }]}>&gt;{refs.excellent.toFixed(1)} kg</Text>
                       </View>
                     </View>
                   </LinearGradient>
@@ -366,38 +366,38 @@ export default function Assessment() {
             })()}
           </>
         ) : (
-          // Multiple choice options for other tests
+          // Multiple choice options
           <>
-            <Text style={styles.selectText}>Select your answer:</Text>
+            <Text style={[styles.selectText, { color: theme.text }]}>Select your answer:</Text>
             <View style={styles.optionsContainer}>
               {'options' in currentTestData && currentTestData.options?.map((option, index) => (
-              <TouchableOpacity
-                key={option}
-                style={styles.optionButton}
-                onPress={() => handleAnswer(option)}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={answers[currentTestData.id] === option 
-                    ? ['#8B5CF6', '#EC4899'] as const
-                    : ['#FFFFFF', '#F9FAFB'] as const
-                  }
-                  style={styles.optionGradient}
+                <TouchableOpacity
+                  key={option}
+                  style={[styles.optionButton, { shadowColor: theme.shadow }]}
+                  onPress={() => handleAnswer(option)}
+                  activeOpacity={0.9}
                 >
+                  <LinearGradient
+                    colors={answers[currentTestData.id] === option ? theme.gradients.primary : theme.gradients.card}
+                    style={[
+                      styles.optionGradient,
+                      { borderColor: answers[currentTestData.id] === option ? theme.primary : theme.cardBorder, borderWidth: 1 }
+                    ]}
+                  >
                     <View style={[
                       styles.optionNumber,
-                      answers[currentTestData.id] === option && styles.optionNumberSelected,
+                      { backgroundColor: answers[currentTestData.id] === option ? 'rgba(255,255,255,0.2)' : theme.input }
                     ]}>
                       <Text style={[
                         styles.optionNumberText,
-                        answers[currentTestData.id] === option && styles.optionNumberTextSelected,
+                        { color: answers[currentTestData.id] === option ? '#FFFFFF' : theme.primary }
                       ]}>
                         {index + 1}
                       </Text>
                     </View>
                     <Text style={[
                       styles.optionText,
-                      answers[currentTestData.id] === option && styles.optionTextSelected,
+                      { color: answers[currentTestData.id] === option ? '#FFFFFF' : theme.text }
                     ]}>
                       {option}
                     </Text>
@@ -412,9 +412,12 @@ export default function Assessment() {
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-          <Text style={styles.skipText}>Skip Assessment</Text>
+      <View style={[styles.footer, { borderTopColor: theme.cardBorder, backgroundColor: theme.glass }]}>
+        <TouchableOpacity 
+          style={[styles.skipButton, { backgroundColor: theme.input }]} 
+          onPress={handleSkip}
+        >
+          <Text style={[styles.skipText, { color: theme.textSecondary }]}>Skip Assessment</Text>
         </TouchableOpacity>
       </View>
     </LinearGradient>
@@ -436,9 +439,8 @@ const styles = StyleSheet.create({
   backButton: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -451,7 +453,6 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 24,
-    color: '#8B5CF6',
   },
   stepIndicator: {
     flexDirection: 'row',
@@ -461,17 +462,14 @@ const styles = StyleSheet.create({
   stepText: {
     fontSize: 32,
     fontWeight: '800',
-    color: '#8B5CF6',
   },
   stepDivider: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#C4B5FD',
   },
   stepTotal: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#C4B5FD',
   },
   progressBarContainer: {
     paddingHorizontal: 20,
@@ -479,7 +477,6 @@ const styles = StyleSheet.create({
   },
   progressBarBg: {
     height: 6,
-    backgroundColor: '#F3E8FF',
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -492,14 +489,14 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 24,
+    paddingBottom: 100,
   },
   testCardWrapper: {
     marginBottom: 32,
     borderRadius: 32,
     overflow: 'hidden',
-    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.3,
     shadowRadius: 24,
     elevation: 8,
   },
@@ -511,7 +508,6 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -522,21 +518,18 @@ const styles = StyleSheet.create({
   testTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#1F2937',
     marginBottom: 12,
     textAlign: 'center',
     letterSpacing: 0.5,
   },
   testDescription: {
     fontSize: 16,
-    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 24,
   },
   selectText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 20,
   },
   optionsContainer: {
@@ -545,9 +538,8 @@ const styles = StyleSheet.create({
   optionButton: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 4,
   },
@@ -560,31 +552,18 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3E8FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
-  optionNumberSelected: {
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-  },
   optionNumberText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#8B5CF6',
-  },
-  optionNumberTextSelected: {
-    color: '#FFFFFF',
   },
   optionText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
     flex: 1,
-  },
-  optionTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '800',
   },
   optionCheck: {
     fontSize: 20,
@@ -595,9 +574,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 4,
   },
@@ -611,22 +589,19 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 24,
     fontWeight: '700',
-    color: '#1F2937',
     paddingVertical: 20,
   },
   inputUnit: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#8B5CF6',
     marginLeft: 12,
   },
   submitButton: {
     borderRadius: 28,
     overflow: 'hidden',
     marginBottom: 24,
-    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 8,
   },
@@ -644,9 +619,8 @@ const styles = StyleSheet.create({
   referenceContainer: {
     borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 4,
   },
@@ -656,7 +630,6 @@ const styles = StyleSheet.create({
   referenceTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -668,7 +641,6 @@ const styles = StyleSheet.create({
   referenceItem: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     padding: 16,
     borderRadius: 16,
   },
@@ -679,24 +651,23 @@ const styles = StyleSheet.create({
   referenceLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6B7280',
     marginBottom: 4,
     textAlign: 'center',
   },
   referenceValue: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#8B5CF6',
     textAlign: 'center',
   },
   footer: {
     padding: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderTopWidth: 1,
-    borderTopColor: '#F3E8FF',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   skipButton: {
-    backgroundColor: '#F3E8FF',
     paddingVertical: 18,
     borderRadius: 28,
     alignItems: 'center',
@@ -704,6 +675,5 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#8B5CF6',
   },
 });

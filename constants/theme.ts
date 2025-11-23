@@ -1,62 +1,91 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
-
 import { Platform } from 'react-native';
 
-// Artemis Longevity Theme - Elegant & Feminine
-const primaryPink = '#EC4899';      // Hot pink
-const primaryPurple = '#8B5CF6';    // Violet
-const lightPurple = '#A78BFA';      // Light violet
-const darkPurple = '#7C3AED';       // Deep violet
-const softPink = '#FDE2F3';         // Very light pink
-const rose = '#F472B6';             // Rose pink
+// Cyberpunk / Futuristic Palette
+const palette = {
+  // Core
+  primary: '#8B5CF6', // Violet
+  primaryLight: '#A78BFA',
+  primaryDark: '#7C3AED',
+  
+  secondary: '#EC4899', // Pink
+  secondaryLight: '#F472B6',
+  secondaryDark: '#DB2777',
+
+  // Gradients
+  gradientStart: '#8B5CF6',
+  gradientEnd: '#EC4899',
+
+  // Dark Mode
+  darkBackground: '#0B0B15', // Deep space black/violet
+  darkCard: '#1A1A24',       // Slightly lighter
+  darkCardBorder: 'rgba(139, 92, 246, 0.2)', // Subtle purple border
+  darkInput: '#232330',
+  darkText: '#FFFFFF',
+  darkTextSecondary: '#9CA3AF',
+
+  // Light Mode
+  lightBackground: '#FFFFFF',
+  lightCard: '#F8FAFC',
+  lightCardBorder: 'rgba(139, 92, 246, 0.1)',
+  lightInput: '#F3F4F6',
+  lightText: '#1F2937',
+  lightTextSecondary: '#6B7280',
+};
 
 export const Colors = {
   light: {
-    text: '#1F2937',
-    background: '#FFFFFF',
-    card: '#FAF5FF',               // Soft lavender tint
-    tint: primaryPurple,
-    primary: primaryPurple,
-    secondary: primaryPink,
-    accent: primaryPink,
-    icon: '#6B7280',
+    text: palette.lightText,
+    textSecondary: palette.lightTextSecondary,
+    background: palette.lightBackground,
+    card: palette.lightCard,
+    cardBorder: palette.lightCardBorder,
+    input: palette.lightInput,
+    tint: palette.primary,
+    primary: palette.primary,
+    secondary: palette.secondary,
+    icon: palette.lightTextSecondary,
     tabIconDefault: '#9CA3AF',
-    tabIconSelected: primaryPink,
-    border: '#F3E8FF',             // Light purple border
-    success: '#10B981',
-    warning: '#F59E0B',
-    error: '#EF4444',
+    tabIconSelected: palette.primary,
+    gradients: {
+      primary: [palette.primary, palette.secondary] as const,
+      card: ['#FFFFFF', '#F8FAFC'] as const,
+      background: ['#F5F3FF', '#FFFFFF', '#FDF2F8'] as const,
+      button: [palette.primary, palette.secondary] as const,
+      buttonDisabled: ['#D1D5DB', '#E5E7EB'] as const,
+    },
+    glass: 'rgba(255, 255, 255, 0.7)',
+    shadow: 'rgba(139, 92, 246, 0.15)',
   },
   dark: {
-    text: '#F9FAFB',
-    background: '#111827',
-    card: '#1F2937',
-    tint: lightPurple,
-    primary: lightPurple,
-    secondary: primaryPurple,
-    accent: '#F472B6',
-    icon: '#9CA3AF',
+    text: palette.darkText,
+    textSecondary: palette.darkTextSecondary,
+    background: palette.darkBackground,
+    card: palette.darkCard,
+    cardBorder: palette.darkCardBorder,
+    input: palette.darkInput,
+    tint: palette.primaryLight,
+    primary: palette.primaryLight,
+    secondary: palette.secondaryLight,
+    icon: palette.darkTextSecondary,
     tabIconDefault: '#6B7280',
-    tabIconSelected: lightPurple,
-    border: '#374151',
-    success: '#34D399',
-    warning: '#FBBF24',
-    error: '#F87171',
+    tabIconSelected: palette.primaryLight,
+    gradients: {
+      primary: [palette.primary, palette.secondary] as const,
+      card: ['#1A1A24', '#15151E'] as const, // Subtle gradient for dark cards
+      background: ['#0B0B15', '#11111F', '#0B0B15'] as const,
+      button: [palette.primary, palette.secondary] as const,
+      buttonDisabled: ['#374151', '#4B5563'] as const,
+    },
+    glass: 'rgba(26, 26, 36, 0.8)',
+    shadow: 'rgba(0, 0, 0, 0.5)',
   },
 };
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {
@@ -64,11 +93,5 @@ export const Fonts = Platform.select({
     serif: 'serif',
     rounded: 'normal',
     mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
 });

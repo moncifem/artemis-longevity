@@ -5,11 +5,15 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initHealthKit, getAllHealthData } from '@/services/apple-health-api';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const { width } = Dimensions.get('window');
 
 export default function AppleHealthConnect() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme ?? 'dark'];
   const [isConnecting, setIsConnecting] = useState(false);
 
   const handleConnect = async () => {
@@ -63,39 +67,39 @@ export default function AppleHealthConnect() {
 
   return (
     <LinearGradient
-      colors={['#FAF5FF', '#FFFFFF', '#FDF2F8']}
+      colors={theme.gradients.background}
       style={styles.container}
     >
-      <StatusBar style="dark" />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { shadowColor: theme.shadow }]}>
             <LinearGradient
-              colors={['#F3E8FF', '#FFFFFF']}
-              style={styles.backButtonGradient}
+              colors={theme.gradients.card}
+              style={[styles.backButtonGradient, { borderColor: theme.cardBorder, borderWidth: 1 }]}
             >
-              <Text style={styles.backText}>←</Text>
+              <Text style={[styles.backText, { color: theme.primary }]}>←</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
 
         {/* Hero Section */}
         <View style={styles.heroSection}>
-          <View style={styles.iconContainer}>
+          <View style={[styles.iconContainer, { shadowColor: theme.shadow }]}>
             <LinearGradient
-              colors={['#8B5CF6', '#EC4899']}
+              colors={theme.gradients.primary}
               style={styles.iconGradient}
             >
               <Text style={styles.appleIcon}>🍎</Text>
             </LinearGradient>
           </View>
           
-          <Text style={styles.title}>
+          <Text style={[styles.title, { color: theme.text }]}>
             Connect Apple Health
           </Text>
-          <Text style={styles.subtitle}>
+          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
             Unlock the full power of Artemis with your Apple Health data
           </Text>
         </View>
@@ -106,32 +110,36 @@ export default function AppleHealthConnect() {
             icon="📊"
             title="Real-time Activity"
             description="Steps, distance, and calories burned"
+            theme={theme}
           />
           <FeatureItem
             icon="❤️"
             title="Heart Health"
             description="Resting HR, heart rate variability"
+            theme={theme}
           />
           <FeatureItem
             icon="😴"
             title="Sleep Analysis"
             description="Total sleep, deep sleep, REM, and more"
+            theme={theme}
           />
           <FeatureItem
             icon="🔒"
             title="Private & Secure"
             description="Your data stays on your device"
+            theme={theme}
           />
         </View>
 
         {/* Info Card */}
         <View style={styles.infoCardWrapper}>
           <LinearGradient
-            colors={['#F3E8FF', '#FCE7F3']}
-            style={styles.infoCard}
+            colors={theme.gradients.card}
+            style={[styles.infoCard, { borderColor: theme.primary, borderWidth: 1 }]}
           >
             <Text style={styles.infoIcon}>💡</Text>
-            <Text style={styles.infoText}>
+            <Text style={[styles.infoText, { color: theme.textSecondary }]}>
               We'll only access data you permit. You can revoke access anytime in iOS Settings.
             </Text>
           </LinearGradient>
@@ -139,23 +147,23 @@ export default function AppleHealthConnect() {
       </ScrollView>
 
       {/* Bottom Actions */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { borderTopColor: theme.cardBorder, backgroundColor: theme.glass }]}>
         <TouchableOpacity 
-          style={styles.skipButton} 
+          style={[styles.skipButton, { backgroundColor: theme.input }]} 
           onPress={handleSkip}
           disabled={isConnecting}
         >
-          <Text style={styles.skipText}>Skip for Now</Text>
+          <Text style={[styles.skipText, { color: theme.textSecondary }]}>Skip for Now</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
-          style={styles.connectButton} 
+          style={[styles.connectButton, { shadowColor: theme.shadow }]} 
           onPress={handleConnect}
           disabled={isConnecting}
           activeOpacity={0.8}
         >
           <LinearGradient
-            colors={['#8B5CF6', '#EC4899']}
+            colors={theme.gradients.button}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.connectButtonGradient}
@@ -172,15 +180,15 @@ export default function AppleHealthConnect() {
   );
 }
 
-function FeatureItem({ icon, title, description }: { icon: string; title: string; description: string }) {
+function FeatureItem({ icon, title, description, theme }: { icon: string; title: string; description: string, theme: any }) {
   return (
-    <View style={styles.featureItem}>
-      <View style={styles.featureIconContainer}>
+    <View style={[styles.featureItem, { backgroundColor: theme.card, borderColor: theme.cardBorder, borderWidth: 1, shadowColor: theme.shadow }]}>
+      <View style={[styles.featureIconContainer, { backgroundColor: theme.input }]}>
         <Text style={styles.featureIcon}>{icon}</Text>
       </View>
       <View style={styles.featureContent}>
-        <Text style={styles.featureTitle}>{title}</Text>
-        <Text style={styles.featureDescription}>{description}</Text>
+        <Text style={[styles.featureTitle, { color: theme.text }]}>{title}</Text>
+        <Text style={[styles.featureDescription, { color: theme.textSecondary }]}>{description}</Text>
       </View>
     </View>
   );
@@ -206,9 +214,8 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -220,7 +227,6 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 24,
-    color: '#8B5CF6',
   },
   heroSection: {
     alignItems: 'center',
@@ -229,11 +235,10 @@ const styles = StyleSheet.create({
   },
   iconContainer: {
     marginBottom: 24,
-    borderRadius: 40,
+    borderRadius: 60,
     overflow: 'hidden',
-    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 24,
     elevation: 12,
   },
@@ -250,14 +255,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 36,
     fontWeight: '800',
-    color: '#1F2937',
     textAlign: 'center',
     marginBottom: 12,
     letterSpacing: 0.5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -269,12 +272,10 @@ const styles = StyleSheet.create({
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     padding: 20,
     borderRadius: 20,
-    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 3,
   },
@@ -282,7 +283,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#F3E8FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -296,12 +296,10 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1F2937',
     marginBottom: 4,
   },
   featureDescription: {
     fontSize: 14,
-    color: '#6B7280',
     lineHeight: 20,
   },
   infoCardWrapper: {
@@ -321,7 +319,6 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#6B7280',
     lineHeight: 20,
     fontWeight: '500',
   },
@@ -333,13 +330,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 20,
     gap: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderTopWidth: 1,
-    borderTopColor: '#F3E8FF',
   },
   skipButton: {
     flex: 1,
-    backgroundColor: '#F3E8FF',
     paddingVertical: 18,
     borderRadius: 28,
     alignItems: 'center',
@@ -348,15 +342,13 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#8B5CF6',
   },
   connectButton: {
     flex: 2,
     borderRadius: 28,
     overflow: 'hidden',
-    shadowColor: '#8B5CF6',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 8,
   },
@@ -372,4 +364,3 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 });
-
