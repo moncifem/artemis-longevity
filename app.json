@@ -76,12 +76,6 @@
           "locationAlwaysAndWhenInUsePermission": "Artemis needs your location to show nearby workout partners and help you organize group fitness sessions.",
           "locationWhenInUsePermission": "Artemis needs your location to show nearby workout partners and help you organize group fitness sessions."
         }
-      ],
-      [
-        "react-native-maps",
-        {
-          "useGoogleMaps": true
-        }
       ]
     ],
     "experiments": {

@@ -61,7 +61,15 @@ export const isHealthKitAvailable = (): Promise<boolean> => {
     }
 
     if (!AppleHealthKit) {
-      console.log('⚠️ HealthKit module not loaded - this is expected in Expo Go or web');
+      console.log('⚠️ HealthKit module not loaded - this is expected in Expo Go or when running without a development build');
+      resolve(false);
+      return;
+    }
+
+    // Check if the module has the isAvailable method
+    if (typeof AppleHealthKit.isAvailable !== 'function') {
+      console.log('⚠️ HealthKit native module not available - you need to build with expo-dev-client');
+      console.log('💡 Run: npx expo run:ios to build and run with native modules');
       resolve(false);
       return;
     }
