@@ -405,10 +405,17 @@ export default function Assessment() {
             <Text style={[styles.testTitle, { color: theme.text }]}>{currentTestData.title}</Text>
             <Text style={[styles.testDescription, { color: theme.textSecondary }]}>{currentTestData.description}</Text>
             
-            {/* Show instructional image for grip strength test */}
+            {/* Show instructional images for tests */}
             {currentTestData.id === 'gripStrength' && (
               <Image 
                 source={require('@/assets/images/grip_test.jpg')}
+                style={styles.instructionalImage}
+                resizeMode="contain"
+              />
+            )}
+            {currentTestData.id === 'sitToStand' && (
+              <Image 
+                source={require('@/assets/images/sit_to_stand.jpg')}
                 style={styles.instructionalImage}
                 resizeMode="contain"
               />
