@@ -431,6 +431,13 @@ export default function Assessment() {
                 resizeMode="contain"
               />
             )}
+            {currentTestData.id === 'singleLegStance' && (
+              <Image 
+                source={require('@/assets/images/single_leg_stance.jpg')}
+                style={styles.instructionalImage}
+                resizeMode="contain"
+              />
+            )}
           </LinearGradient>
         </View>
 
