@@ -81,6 +81,7 @@ const workoutExercises = [
     icon: '💺',
     xp: 50,
     gradient: ['#8B5CF6', '#A78BFA'] as const,
+    tutorialUrl: 'https://www.youtube.com/watch?v=eutszbtbJM8',
   },
   {
     id: 'glute-bridge',
@@ -89,9 +90,10 @@ const workoutExercises = [
     reps: '10–15',
     sets: '2–3',
     notes: 'Squeeze glutes at the top.',
-    icon: '🍑',
+    icon: '🔺',
     xp: 40,
     gradient: ['#EC4899', '#F472B6'] as const,
+    tutorialUrl: 'https://www.youtube.com/watch?v=tqp5XQPpTxY',
   },
   {
     id: 'wall-pushup',
@@ -103,6 +105,7 @@ const workoutExercises = [
     icon: '💪',
     xp: 50,
     gradient: ['#10B981', '#34D399'] as const,
+    tutorialUrl: 'https://www.youtube.com/watch?v=oduG4CjpSw0',
   },
   {
     id: 'bent-over-row',
@@ -114,6 +117,7 @@ const workoutExercises = [
     icon: '🏋️',
     xp: 45,
     gradient: ['#F59E0B', '#FBBF24'] as const,
+    tutorialUrl: null,
   },
   {
     id: 'calf-raise',
@@ -125,6 +129,7 @@ const workoutExercises = [
     icon: '🦵',
     xp: 30,
     gradient: ['#6366F1', '#818CF8'] as const,
+    tutorialUrl: null,
   },
   {
     id: 'bird-dog',
@@ -133,9 +138,10 @@ const workoutExercises = [
     reps: '5–8/side',
     sets: '2',
     notes: 'Move slowly. Keep core tight.',
-    icon: '🐦',
+    icon: '🧘',
     xp: 40,
     gradient: ['#14B8A6', '#2DD4BF'] as const,
+    tutorialUrl: null,
   },
   {
     id: 'dead-bug',
@@ -144,9 +150,10 @@ const workoutExercises = [
     reps: '8–10',
     sets: '2',
     notes: 'Keep lower back pressed to floor.',
-    icon: '🐛',
+    icon: '🔄',
     xp: 40,
     gradient: ['#F43F5E', '#FB7185'] as const,
+    tutorialUrl: null,
   },
 ];
 
@@ -686,6 +693,18 @@ export default function ExercisesScreen() {
                     <Text style={[styles.modalNotesText, { color: theme.text }]}>{selectedExercise.notes}</Text>
                   </View>
 
+                  {selectedExercise.tutorialUrl && (
+                    <TouchableOpacity
+                      style={[styles.tutorialButton, { backgroundColor: theme.input, borderColor: theme.primary, borderWidth: 2 }]}
+                      onPress={() => openEducationVideo(selectedExercise.tutorialUrl)}
+                    >
+                      <Ionicons name="play-circle" size={24} color={theme.primary} />
+                      <Text style={[styles.tutorialButtonText, { color: theme.primary }]}>
+                        Watch Tutorial Video
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
                   {isToday && (
                     <TouchableOpacity
                       style={[
@@ -1115,6 +1134,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '500',
+  },
+  tutorialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  tutorialButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
   },
   completeButton: {
     paddingVertical: 16,
