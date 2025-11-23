@@ -218,7 +218,11 @@ export async function fetchAndMapOuraData(days: number = 7): Promise<MappedOuraD
       fitnessAge,
     };
   } catch (error) {
-    console.error('Error fetching Oura data:', error);
+    // Silent fail if not configured
+    if (error instanceof Error && error.message === 'NOT_CONFIGURED') {
+      throw error;
+    }
+    console.log('Oura data not available');
     throw error;
   }
 }
@@ -239,7 +243,10 @@ export async function autoFillProfileFromOura() {
       sex: personalInfo.biological_sex,
     };
   } catch (error) {
-    console.error('Error fetching Oura personal info:', error);
+    // Silent fail if not configured
+    if (error instanceof Error && error.message === 'NOT_CONFIGURED') {
+      return null;
+    }
     return null;
   }
 }
@@ -257,7 +264,10 @@ export async function preFillAssessmentFromOura(days: number = 7) {
       // Note: grip strength and flexibility still need manual input
     };
   } catch (error) {
-    console.error('Error pre-filling assessment:', error);
+    // Silent fail if not configured
+    if (error instanceof Error && error.message === 'NOT_CONFIGURED') {
+      return null;
+    }
     return null;
   }
 }
@@ -294,7 +304,11 @@ export async function getHealthSummary(days: number = 7) {
       },
     };
   } catch (error) {
-    console.error('Error getting health summary:', error);
+    // Silent fail if not configured
+    if (error instanceof Error && error.message === 'NOT_CONFIGURED') {
+      return null;
+    }
+    console.log('Oura data not available');
     return null;
   }
 }

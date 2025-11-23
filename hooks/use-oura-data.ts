@@ -81,6 +81,11 @@ export function useOuraHealthSummary(days: number = 7) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchSummary = async () => {
+    // Don't fetch if not configured
+    if (!isOuraConfigured()) {
+      return null;
+    }
+
     setIsLoading(true);
     setError(null);
     
@@ -89,8 +94,8 @@ export function useOuraHealthSummary(days: number = 7) {
       setSummary(data);
       return data;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch Oura health summary';
-      setError(errorMessage);
+      // Silent fail - just log to console, don't set error state
+      console.log('Oura not configured or data unavailable');
       return null;
     } finally {
       setIsLoading(false);

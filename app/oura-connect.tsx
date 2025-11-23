@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function OuraConnect() {
   const router = useRouter();
@@ -108,7 +108,10 @@ export default function OuraConnect() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <StatusBar style="dark" />
       <LinearGradient
         colors={['#FCE7F3', '#FFFFFF']}
@@ -122,7 +125,11 @@ export default function OuraConnect() {
           <View style={styles.placeholder} />
         </View>
 
-        <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          style={styles.content} 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.iconContainer}>
             <Text style={styles.icon}>💍</Text>
           </View>
@@ -134,17 +141,6 @@ export default function OuraConnect() {
 
           {!isConnected ? (
             <>
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Why Connect? ✨</Text>
-                <View style={styles.benefitsList}>
-                  <BenefitItem icon="📊" text="Auto-fill fitness assessments" />
-                  <BenefitItem icon="💤" text="Track sleep quality & recovery" />
-                  <BenefitItem icon="❤️" text="Monitor resting heart rate" />
-                  <BenefitItem icon="📈" text="Get accurate fitness age calculations" />
-                  <BenefitItem icon="🎯" text="Personalized health recommendations" />
-                </View>
-              </View>
-
               <View style={styles.inputCard}>
                 <Text style={styles.inputLabel}>Oura API Token</Text>
                 <TextInput
@@ -242,16 +238,7 @@ export default function OuraConnect() {
           </View>
         </ScrollView>
       </LinearGradient>
-    </View>
-  );
-}
-
-function BenefitItem({ icon, text }: { icon: string; text: string }) {
-  return (
-    <View style={styles.benefitItem}>
-      <Text style={styles.benefitIcon}>{icon}</Text>
-      <Text style={styles.benefitText}>{text}</Text>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -342,28 +329,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
   },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 16,
-  },
-  benefitsList: {
-    gap: 12,
-  },
-  benefitItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  benefitIcon: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  benefitText: {
-    fontSize: 15,
-    color: '#4B5563',
-    fontWeight: '500',
-  },
   inputCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -397,14 +362,14 @@ const styles = StyleSheet.create({
   },
   helpText: {
     fontSize: 14,
-    color: Colors.light.accent,
+    color: Colors.light.primary,
     fontWeight: '600',
   },
   connectButton: {
     borderRadius: 30,
     overflow: 'hidden',
     marginBottom: 24,
-    shadowColor: Colors.light.accent,
+    shadowColor: Colors.light.primary,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,

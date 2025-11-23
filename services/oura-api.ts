@@ -139,7 +139,8 @@ async function ouraRequest<T>(endpoint: string, options: RequestInit = {}): Prom
   const apiToken = storedToken || OURA_CONFIG.apiToken;
   
   if (!apiToken) {
-    throw new Error('Oura API token not configured. Please connect your Oura Ring in the app.');
+    // Silent fail - return empty response
+    throw new Error('NOT_CONFIGURED');
   }
 
   const url = `${OURA_CONFIG.baseUrl}${endpoint}`;
@@ -319,7 +320,11 @@ export async function getAverageRestingHeartRate(days: number = 7): Promise<numb
     const average = heartRates.reduce((sum, hr) => sum + hr, 0) / heartRates.length;
     return Math.round(average);
   } catch (error) {
-    console.error('Error fetching resting heart rate:', error);
+    // Silent fail if not configured
+    if (error instanceof Error && error.message === 'NOT_CONFIGURED') {
+      return null;
+    }
+    // Only log real errors, not configuration issues
     return null;
   }
 }
@@ -333,7 +338,10 @@ export async function getTodayActivity(): Promise<OuraDailyActivity | null> {
     const activities = await getDailyActivity(today, today);
     return activities.length > 0 ? activities[0] : null;
   } catch (error) {
-    console.error('Error fetching today activity:', error);
+    // Silent fail if not configured
+    if (error instanceof Error && error.message === 'NOT_CONFIGURED') {
+      return null;
+    }
     return null;
   }
 }
@@ -347,7 +355,10 @@ export async function getTodaySleep(): Promise<OuraDailySleep | null> {
     const sleeps = await getDailySleep(today, today);
     return sleeps.length > 0 ? sleeps[0] : null;
   } catch (error) {
-    console.error('Error fetching today sleep:', error);
+    // Silent fail if not configured
+    if (error instanceof Error && error.message === 'NOT_CONFIGURED') {
+      return null;
+    }
     return null;
   }
 }
@@ -361,7 +372,10 @@ export async function getTodayReadiness(): Promise<OuraDailyReadiness | null> {
     const readiness = await getDailyReadiness(today, today);
     return readiness.length > 0 ? readiness[0] : null;
   } catch (error) {
-    console.error('Error fetching today readiness:', error);
+    // Silent fail if not configured
+    if (error instanceof Error && error.message === 'NOT_CONFIGURED') {
+      return null;
+    }
     return null;
   }
 }
