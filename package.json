@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "start:dev": "set REACT_NATIVE_PACKAGER_HOSTNAME=172.20.10.13 && expo start --dev-client",
     "start:tunnel": "expo start --tunnel",
     "start:lan": "set REACT_NATIVE_PACKAGER_HOSTNAME=192.168.2.34 && expo start --lan",
     "start:host": "expo start --host lan",
@@ -24,6 +25,7 @@
     "@react-navigation/native": "^7.1.8",
     "expo": "~54.0.25",
     "expo-constants": "~18.0.10",
+    "expo-dev-client": "~6.0.18",
     "expo-font": "~14.0.9",
     "expo-haptics": "~15.0.7",
     "expo-image": "~3.0.10",

@@ -2,35 +2,51 @@ import { Platform } from 'react-native';
 
 // Dynamically import react-native-health only on iOS
 let AppleHealthKit: any = null;
+let HealthKitPermissions: any = null;
 
 try {
   if (Platform.OS === 'ios') {
-    AppleHealthKit = require('react-native-health').default;
+    const HealthKit = require('react-native-health');
+    AppleHealthKit = HealthKit.default || HealthKit;
+    console.log('✅ HealthKit module loaded successfully');
   }
 } catch (error) {
-  console.log('Apple HealthKit module not available:', error);
+  console.log('❌ Apple HealthKit module not available:', error);
 }
 
-// Define permissions we need
-const permissions = {
-  permissions: {
-    read: [
-      'Steps',
-      'StepCount',
-      'DistanceWalkingRunning',
-      'ActiveEnergyBurned',
-      'BasalEnergyBurned',
-      'HeartRate',
-      'RestingHeartRate',
-      'HeartRateVariability',
-      'SleepAnalysis',
-      'Height',
-      'Weight',
-      'DateOfBirth',
-      'BiologicalSex',
-    ],
-    write: [],
-  },
+// Build permissions object dynamically
+const getPermissions = () => {
+  if (!AppleHealthKit || !AppleHealthKit.Constants) {
+    return {
+      permissions: {
+        read: [],
+        write: [],
+      },
+    };
+  }
+
+  const Constants = AppleHealthKit.Constants.Permissions;
+  
+  return {
+    permissions: {
+      read: [
+        Constants.Steps,
+        Constants.StepCount,
+        Constants.DistanceWalkingRunning,
+        Constants.ActiveEnergyBurned,
+        Constants.BasalEnergyBurned,
+        Constants.HeartRate,
+        Constants.RestingHeartRate,
+        Constants.HeartRateVariability,
+        Constants.SleepAnalysis,
+        Constants.Height,
+        Constants.Weight,
+        Constants.DateOfBirth,
+        Constants.BiologicalSex,
+      ],
+      write: [],
+    },
+  };
 };
 
 /**
@@ -39,13 +55,13 @@ const permissions = {
 export const isHealthKitAvailable = (): Promise<boolean> => {
   return new Promise((resolve) => {
     if (Platform.OS !== 'ios') {
-      console.log('HealthKit is only available on iOS');
+      console.log('⚠️ HealthKit is only available on iOS');
       resolve(false);
       return;
     }
 
     if (!AppleHealthKit) {
-      console.log('HealthKit module not loaded');
+      console.log('⚠️ HealthKit module not loaded - this is expected in Expo Go or web');
       resolve(false);
       return;
     }
@@ -53,14 +69,15 @@ export const isHealthKitAvailable = (): Promise<boolean> => {
     try {
       AppleHealthKit.isAvailable((err: any, available: boolean) => {
         if (err) {
-          console.log('Error checking HealthKit availability:', err);
+          console.log('❌ Error checking HealthKit availability:', err);
           resolve(false);
           return;
         }
+        console.log('✅ HealthKit is available:', available);
         resolve(available);
       });
     } catch (error) {
-      console.log('HealthKit not supported:', error);
+      console.log('❌ HealthKit not supported:', error);
       resolve(false);
     }
   });
@@ -72,29 +89,32 @@ export const isHealthKitAvailable = (): Promise<boolean> => {
 export const initHealthKit = (): Promise<boolean> => {
   return new Promise((resolve) => {
     if (Platform.OS !== 'ios') {
-      console.log('HealthKit is only available on iOS');
+      console.log('⚠️ HealthKit is only available on iOS');
       resolve(false);
       return;
     }
 
     if (!AppleHealthKit) {
-      console.log('HealthKit module not available. Make sure you are using a development or production build.');
+      console.log('❌ HealthKit module not available. Make sure you are using a native build (EAS Build), not Expo Go.');
       resolve(false);
       return;
     }
 
     try {
+      const permissions = getPermissions();
+      console.log('🔄 Requesting HealthKit permissions...');
+      
       AppleHealthKit.initHealthKit(permissions, (error: any) => {
         if (error) {
-          console.log('[ERROR] Cannot grant permissions:', error);
+          console.log('❌ Cannot grant permissions:', error);
           resolve(false);
           return;
         }
-        console.log('✅ HealthKit initialized successfully');
+        console.log('✅ HealthKit initialized successfully!');
         resolve(true);
       });
     } catch (error) {
-      console.log('Error initializing HealthKit:', error);
+      console.log('❌ Error initializing HealthKit:', error);
       resolve(false);
     }
   });
@@ -361,7 +381,7 @@ export const getBiologicalSex = (): Promise<'male' | 'female' | 'other' | ''> =>
       if (sex === 'male' || sex === 'female') {
         resolve(sex);
       } else {
-        resolve('other');
+        resolve('');
       }
     });
   }, '');
